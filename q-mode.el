@@ -478,15 +478,12 @@ to read the command line arguments from the minibuffer."
            ))
   "Most highlighting expressions for q mode")
 
-;;; this works with embedded backslashes, but sometimes causes emacs to hang
-;;; to use this change the syntax table to turn " into punctuation
-;;; (font-lock-syntactic-keywords . (("\\(\"\\)\\(?:\\(?:[^\"\\]+\\|\\\\\\(?:.\\|\\)\\)*\\)\\(\"\\)" (1 "\"") (2 "\"")); strings
-
 (defvar q-font-lock-defaults
   '((q-font-lock-keywords q-font-lock-keywords-1 q-font-lock-keywords-2 q-font-lock-keywords-3)
     nil nil nil nil
     (font-lock-syntactic-keywords . (("^\\(\/\\)\\s *$"     1 "< b") ; begin multiline comment /
                                      ("^\\(\\\\\\)\\s *$"   1 "> b") ; end multiline comment   \
+                                     ("\\(\"\\)\\(?:[^\"\\\\\\]\\|\\\\.\\)*\\(\"\\)" (1 "\"") (2 "\"")); strings
                                      ("\\(?:^\\(?:[a-z])\\)?\\|[ \t\n;]\\)\\(\/\\)"    1 "<  ") ; comments start with ' ' or ';'
                                      )))
   "List of Font lock keywords to properly highlight q syntax")
@@ -496,12 +493,12 @@ to read the command line arguments from the minibuffer."
 
 (defvar q-mode-syntax-table
   (let ((q-mode-syntax-table (make-syntax-table)))
-    (modify-syntax-entry ?\" "\"  "q-mode-syntax-table) ; treat " as string quote
+    (modify-syntax-entry ?\" ".  " q-mode-syntax-table) ; treat " as punctuation
     (modify-syntax-entry ?\/ ".  " q-mode-syntax-table) ; treat / as punctuation
     (modify-syntax-entry ?\n ">  " q-mode-syntax-table) ; comments are ended by a new line
     (modify-syntax-entry ?\r ">  " q-mode-syntax-table) ; comments are ended by a new line
     (modify-syntax-entry ?\. "_  " q-mode-syntax-table) ; treat . as a symbol
-    (modify-syntax-entry ?\\ "   " q-mode-syntax-table) ; treat \ as escape
+    (modify-syntax-entry ?\\ ".  " q-mode-syntax-table) ; treat \ as punctuation
     (modify-syntax-entry ?\$ ".  " q-mode-syntax-table) ; treat $ as punctuation
     (modify-syntax-entry ?\% ".  " q-mode-syntax-table) ; treat % as punctuation
     (modify-syntax-entry ?\& ".  " q-mode-syntax-table) ; treat & as punctuation
@@ -513,7 +510,7 @@ to read the command line arguments from the minibuffer."
     (modify-syntax-entry ?\< ".  " q-mode-syntax-table) ; treat < as punctuation
     (modify-syntax-entry ?\> ".  " q-mode-syntax-table) ; treat > as punctuation
     (modify-syntax-entry ?\| ".  " q-mode-syntax-table) ; treat | as punctuation
-    (modify-syntax-entry ?\` "_  " q-mode-syntax-table) ; treat ` as symbol
+    (modify-syntax-entry ?\` "'  " q-mode-syntax-table) ; treat ` as expression prefix
     q-mode-syntax-table)
   "Syntax table for q-mode")
 
