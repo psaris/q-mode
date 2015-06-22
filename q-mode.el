@@ -402,13 +402,13 @@ to read the command line arguments from the minibuffer."
             (regexp-opt
              '( "aj" "aj0" "all" "and" "any" "asc" "asof" "attr" "avgs" "ceiling"
                 "cols" "count" "cross" "csv" "cut" "deltas" "desc"
-                "differ" "distinct" "each" "ej" "enlist" "eval" "except" "fby" "fills"
+                "differ" "distinct" "dsave" "each" "ej" "enlist" "eval" "except" "fby" "fills"
                 "first" "fkeys" "flip" "floor" "get" "group" "gtime" "hclose" "hcount"
                 "hdel" "hopen" "hsym" "iasc" "idesc" "ij" "inter" "inv" "key" "keys"
-                "lj" "load" "lower" "lsq" "ltime" "ltrim" "mavg" "maxs" "mcount" "md5"
+                "lj" "ljf" "load" "lower" "lsq" "ltime" "ltrim" "mavg" "maxs" "mcount" "md5"
                 "mdev" "med" "meta" "mins" "mmax" "mmin" "mmu" "mod" "msum" "neg"
                 "next" "not" "null" "or" "over" "parse" "peach" "pj" "plist" "prds" "prior"
-                "prev" "rand" "rank" "ratios" "raze" "read0" "read1" "reciprocal"
+                "prev" "rand" "rank" "ratios" "raze" "read0" "read1" "reciprocal" "reval"
                 "reverse" "rload" "rotate" "rsave" "rtrim" "save" "scan" "scov" "sdev" "set" "show"
                 "signum" "ssr" "string" "sublist" "sums" "sv" "svar" "system" "tables" "til"
                 "trim" "txf" "type" "uj" "ungroup" "union" "upper" "upsert" "value"
@@ -426,7 +426,8 @@ to read the command line arguments from the minibuffer."
   "Constants for q mode")
 
 (defvar q-font-lock-keywords
-  (list '("^\\\\\\_<.*" 0 font-lock-constant-face keep) ; lines starting with a '\' are compile time
+  (list '("\"\\(?:[^\"\\\\]\\|\\\\.\\)*?\\(?:\"\\|[.][.]$\\)" . font-lock-string-face) ; strings
+        '("^\\\\\\_<.*?$" 0 font-lock-constant-face keep) ; lines starting with a '\' are compile time
         )
   "Minimal highlighting expressions for q mode")
 
@@ -463,7 +464,7 @@ to read the command line arguments from the minibuffer."
 (defvar q-font-lock-keywords-3
   (append q-font-lock-keywords-2
           (list
-           '("^'.*" 0 font-lock-warning-face t)   ; error
+           '("^'.*?$" 0 font-lock-warning-face t)   ; error
            '("'`\\w*" 0 font-lock-warning-face t) ; signal
            '("\\_<[0-9][0-9][0-9][0-9]\\.[0-9][0-9]\\(?:m\\|\\.[0-9][0-9]\\(?:T\\(?:[0-9][0-9]:[0-9][0-9]\\(?:[:][0-9][0-9]\\(?:\\.[0-9]*\\)?\\)?\\)?\\)?\\)\\_>" . font-lock-constant-face) ; month/date/datetime
            '("\\_<\\(?:[0-9][0-9][0-9][0-9]\\.[0-9][0-9]\\.[0-9][0-9]\\|[0-9]+\\)D\\(?:[0-9][0-9]\\(?:[:][0-9][0-9]\\(?:[:][0-9][0-9]\\(?:\\.[0-9]*\\)\\)?\\)?\\)?\\_>" . font-lock-constant-face) ; timespan/timestamp
@@ -483,7 +484,6 @@ to read the command line arguments from the minibuffer."
     nil nil nil nil
     (font-lock-syntactic-keywords . (("^\\(\/\\)\\s *$"     1 "< b") ; begin multiline comment /
                                      ("^\\(\\\\\\)\\s *$"   1 "> b") ; end multiline comment   \
-                                     ("\\(\"\\)\\(?:[^\"\\\\\\]\\|\\\\.\\)*\\(\"\\)" (1 "\"") (2 "\"")); strings
                                      ("\\(?:^\\(?:[a-z])\\)?\\|[ \t\n;]\\)\\(\/\\)"    1 "<  ") ; comments start with ' ' or ';'
                                      )))
   "List of Font lock keywords to properly highlight q syntax")
