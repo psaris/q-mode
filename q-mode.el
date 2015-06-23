@@ -426,8 +426,7 @@ to read the command line arguments from the minibuffer."
   "Constants for q mode")
 
 (defvar q-font-lock-keywords
-  (list '("\"\\(?:[^\"\\\\]\\|\\\\.\\)*?\\(?:\"\\|[.][.]$\\)" . font-lock-string-face) ; strings
-        '("^\\\\\\_<.*?$" 0 font-lock-constant-face keep) ; lines starting with a '\' are compile time
+  (list '("^\\\\\\_<.*?$" 0 font-lock-constant-face keep) ; lines starting with a '\' are compile time
         )
   "Minimal highlighting expressions for q mode")
 
@@ -485,6 +484,7 @@ to read the command line arguments from the minibuffer."
     (font-lock-syntactic-keywords . (("^\\(\/\\)\\s *$"     1 "< b") ; begin multiline comment /
                                      ("^\\(\\\\\\)\\s *$"   1 "> b") ; end multiline comment   \
                                      ("\\(?:^\\(?:[a-z])\\)?\\|[ \t\n;]\\)\\(\/\\)"    1 "<  ") ; comments start with ' ' or ';'
+                                     ("\\(\"\\)\\(?:[^\"\\\\]\\|\\\\.\\)*?\\(\"\\)" (1 "\"") (2 "\""))
                                      )))
   "List of Font lock keywords to properly highlight q syntax")
 
