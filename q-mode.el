@@ -464,7 +464,7 @@ to read the command line arguments from the minibuffer."
   (append q-font-lock-keywords-2
           (list
            '("^'.*?$" 0 font-lock-warning-face t)   ; error
-           '("'`\\w*" 0 font-lock-warning-face t) ; signal
+           '("[; ]\\('`\\w*\\)" 1 font-lock-warning-face t) ; signal
            '("\\_<[0-9][0-9][0-9][0-9]\\.[0-9][0-9]\\(?:m\\|\\.[0-9][0-9]\\(?:T\\(?:[0-9][0-9]:[0-9][0-9]\\(?:[:][0-9][0-9]\\(?:\\.[0-9]*\\)?\\)?\\)?\\)?\\)\\_>" . font-lock-constant-face) ; month/date/datetime
            '("\\_<\\(?:[0-9][0-9][0-9][0-9]\\.[0-9][0-9]\\.[0-9][0-9]\\|[0-9]+\\)D\\(?:[0-9][0-9]\\(?:[:][0-9][0-9]\\(?:[:][0-9][0-9]\\(?:\\.[0-9]*\\)\\)?\\)?\\)?\\_>" . font-lock-constant-face) ; timespan/timestamp
            '("\\_<[0-9a-f]\\{8\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{12\\}\\_>" . font-lock-constant-face) ; guid
