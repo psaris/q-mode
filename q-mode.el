@@ -425,24 +425,6 @@ to read the command line arguments from the minibuffer."
                           ".z.w" ".z.x" ".z.z" ".z.n" ".z.p" ".z.ws" ".z.bm") t) "\\_>"))
   "Constants for q mode")
 
-(defvar q-font-lock-keywords
-  (list '("^\\\\\\_<.*?$" 0 font-lock-constant-face keep) ; lines starting with a '\' are compile time
-        )
-  "Minimal highlighting expressions for q mode")
-
-(defvar q-font-lock-keywords-1
-  (append q-font-lock-keywords
-          (list
-           '("`:\\(?:\\w\\|[/:._]\\)*" . font-lock-preprocessor-face) ; files
-           (list q-type-words 1 font-lock-type-face nil) ; `minute`year
-           '("\\(`\\_<[gpsu]\\)#" 1 font-lock-type-face nil) ; attributes
-           '("`\\(?:\\(?:\\w\\|[.]\\)\\(?:\\w\\|\\s_\\)*\\)?" . font-lock-constant-face) ; symbols
-           (cons q-constant-words 'font-lock-constant-face) ; .z.*
-           (cons q-keywords  'font-lock-keyword-face)   ; select from
-           '("\\b[0-2]:" . font-lock-preprocessor-face) ; IO/IPC
-           ))
-  "More highlighting expressions for q mode")
-
 (defvar q-function-regex
   "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\)*\\s *\\):\\s *{"
   "Regular expression used to find function declarations")
@@ -451,20 +433,32 @@ to read the command line arguments from the minibuffer."
   "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\)*\\s *\\)[-.~=!@#$%^&*_+|,<>?]?::?"
   "Regular expression used to find variable declarations")
 
-(defvar q-font-lock-keywords-2
-  (append q-font-lock-keywords-1
+(defvar q-font-lock-keywords
+  (list '("^\\\\\\_<.*?$" 0 font-lock-constant-face keep) ; lines starting with a '\' are compile time
+        (list q-function-regex 1 font-lock-function-name-face nil) ; functions
+        )
+  "Minimal highlighting expressions for q mode")
+
+(defvar q-font-lock-keywords-1 ; types
+  (append q-font-lock-keywords
           (list
-           (list q-function-regex 1 font-lock-function-name-face nil) ; functions
-           (list q-variable-regex 1 font-lock-variable-name-face nil) ; variables
+           '("`:\\(?:\\w\\|[/:._]\\)*" . font-lock-preprocessor-face) ; files
+           '("\\(`\\_<[gpsu]\\)#" 1 font-lock-type-face nil) ; attributes
+           '("^'.*?$" 0 font-lock-warning-face nil)   ; error
+           '("[; ]\\('`\\w*\\)" 1 font-lock-warning-face nil) ; signal
+           '("`\\(?:\\(?:\\w\\|[.]\\)\\(?:\\w\\|\\s_\\)*\\)?" . font-lock-constant-face) ; symbols
+           '("\\b[0-2]:" . font-lock-preprocessor-face) ; IO/IPC
+           (list q-type-words 1 font-lock-type-face nil) ; `minute`year
+           (cons q-keywords  'font-lock-keyword-face)   ; select from
            (cons q-builtin-words 'font-lock-builtin-face) ; q.k
            ))
-  "Even More highlighting expressions for q mode")
+  "More highlighting expressions for q mode")
 
-(defvar q-font-lock-keywords-3
-  (append q-font-lock-keywords-2
+(defvar q-font-lock-keywords-2 ; keywords & literals
+  (append q-font-lock-keywords-1
           (list
-           '("^'.*?$" 0 font-lock-warning-face t)   ; error
-           '("[; ]\\('`\\w*\\)" 1 font-lock-warning-face t) ; signal
+           (cons q-constant-words 'font-lock-constant-face) ; .z.*
+           (list q-variable-regex 1 font-lock-variable-name-face nil) ; variables
            '("\\_<[0-9][0-9][0-9][0-9]\\.[0-9][0-9]\\(?:m\\|\\.[0-9][0-9]\\(?:T\\(?:[0-9][0-9]:[0-9][0-9]\\(?:[:][0-9][0-9]\\(?:\\.[0-9]*\\)?\\)?\\)?\\)?\\)\\_>" . font-lock-constant-face) ; month/date/datetime
            '("\\_<\\(?:[0-9][0-9][0-9][0-9]\\.[0-9][0-9]\\.[0-9][0-9]\\|[0-9]+\\)D\\(?:[0-9]\\(?:[0-9]\\(?:[:][0-9][0-9]\\(?:[:][0-9][0-9]\\(?:\\.[0-9]*\\)?\\)?\\)?\\)?\\)?\\_>" . font-lock-constant-face) ; timespan/timestamp
            '("\\_<[0-9a-f]\\{8\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{12\\}\\_>" . font-lock-constant-face) ; guid
@@ -479,7 +473,7 @@ to read the command line arguments from the minibuffer."
   "Most highlighting expressions for q mode")
 
 (defvar q-font-lock-defaults
-  '((q-font-lock-keywords q-font-lock-keywords-1 q-font-lock-keywords-2 q-font-lock-keywords-3)
+  '((q-font-lock-keywords q-font-lock-keywords-1 q-font-lock-keywords-2)
     nil nil nil nil
     (font-lock-syntactic-keywords . (("^\\(\/\\)\\s *$"     1 "< b") ; begin multiline comment /
                                      ("^\\(\\\\\\)\\s *$"   1 "> b") ; end multiline comment   \
