@@ -28,7 +28,7 @@
 ;;
 ;;  - syntax highlighting (font lock),
 ;;
-;;  - interaction with inferior q or qcon instance,
+;;  - interaction with inferior q[con] instance,
 ;;
 ;;  - scans declarations and places them in a menu.
 ;;
@@ -58,13 +58,13 @@
 ;; process.  Both can be prefixed with the universal-argument `C-u` to
 ;; customize the arguments used to start the processes.
 
-;; The first q or qcon session opened becomes the activated buffer.
+;; The first q[con] session opened becomes the activated buffer.
 ;; To open a new session and send code to the new buffer, it must be
 ;; actived.  Switch to the desired buffer and type `C-c M-RET` to
 ;; activate it.
 
-;; The following commands are available to interact with an inferior q
-;; or qcon process/buffer. `C-c C-l` sends a single line, `C-c C-f`
+;; The following commands are available to interact with an inferior
+;; q[con] process/buffer. `C-c C-l` sends a single line, `C-c C-f`
 ;; sends the surrounding function, `C-c C-r` sends the selected region
 ;; and `C-c C-b` sends the whole buffer.  If the source file exists on
 ;; the same machine as the q process, `C-c M-l` can be used to load
@@ -74,6 +74,23 @@
 ;; Specifically, the `inferior-q-program-name` and
 ;; `inferior-qcon-program-name` variables can be changed depending on
 ;; your environment.
+
+;; The variables `q-msg-prefix` and `q-msg-postfix` can be customized
+;; to prefix and postfix every msg sent to the inferior q[con]
+;; process. This can be used to change directories before evaluating
+;; definitions within the q process and then changing back to the root
+;; directory. To make the variables change values depending on which
+;; file they are sent from, values can be defined in a single line a
+;; the top of each .q file:
+
+;; / -*- q-msg-prefix: "system \"d .jnp\";"; q-msg-postfix: ";system \"d .\"";-*-
+
+;; or at the end:
+
+;; / Local Variables:
+;; / q-msg-prefix: "system \"d .jnp\";"
+;; / q-msg-postfix: ";system \"d .\""
+;; / End:
 
 
 (require 'comint)
@@ -97,6 +114,16 @@
 
 (defcustom q-comment-start "/"
   "String to insert to start a new comment (some prefer a double forward slash)."
+  :type 'string
+  :group 'q)
+
+(defcustom q-msg-prefix ""
+  "String to prefix every message sent to inferior q[con] process."
+  :type 'string
+  :group 'q)
+
+(defcustom q-msg-postfix ""
+  "String to postfix every message sent to inferior q[con] process."
   :type 'string
   :group 'q)
 
@@ -285,28 +312,29 @@ to read the command line arguments from the minibuffer."
 
 (defun q-send-string (string)
   (unless (cdr (assoc `comint-process-echoes (buffer-local-variables (get-buffer q-active-buffer))))
+    (let ((msg (concat q-msg-prefix string q-msg-postfix)))
       (with-current-buffer (get-buffer q-active-buffer)
         (goto-char (point-max))
-        (insert-before-markers (concat string "\n"))))
-  (comint-simple-send (get-buffer-process q-active-buffer) string))
+        (insert-before-markers (concat msg "\n")))
+      (comint-simple-send (get-buffer-process q-active-buffer) msg))))
 
 (defun q-eval-region (start end)
-  "Send the current region to the inferior q process."
+  "Send the current region to the inferior q[con] process."
   (interactive "r")
   (q-send-string (q-strip (buffer-substring start end))))
 
 (defun q-eval-line ()
-  "Send the current line to the inferior q process."
+  "Send the current line to the inferior q[con] process."
   (interactive)
   (q-eval-region (point-at-bol) (point-at-eol)))
 
 (defun q-eval-buffer ()
-  "Load current buffer into the inferior q process."
+  "Load current buffer into the inferior q[con] process."
   (interactive)
   (q-eval-region (point-min) (point-max)))
 
 (defun q-eval-function ()
-  "Send the current function to the inferior q process."
+  "Send the current function to the inferior q[con] process."
   (interactive)
   (save-excursion
     (goto-char (point-at-eol))          ; go to end of line
@@ -316,7 +344,7 @@ to read the command line arguments from the minibuffer."
       (q-send-string (q-strip (concat (buffer-substring start end) fun))))))
 
 (defun q-load-file()
-  "Load current buffer's file into the inferior q process after saving."
+  "Load current buffer's file into the inferior q[con] process after saving."
   (interactive)
   (save-buffer)
   (q-send-string (format "\\l %s" (buffer-file-name))))
