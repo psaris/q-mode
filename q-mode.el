@@ -563,10 +563,6 @@ to read the command line arguments from the minibuffer."
   (set (make-local-variable 'comment-start) q-comment-start)
   (set (make-local-variable 'comment-start-skip) "\\(/+\\)\\s *")
   (set (make-local-variable 'comment-end) "")
-  ;; Keep <tabs> out of the code.
-  (set (make-local-variable 'indent-tabs-mode) nil)
-  (set (make-local-variable 'tab-stop-list) '(1))
-  ;; (set (make-local-variable 'indent-line-function) 'q-indent-line)
   (easy-menu-add q-menu)
   ;; enable imenu
   (set (make-local-variable 'imenu-generic-expression) q-imenu-generic-expression)
