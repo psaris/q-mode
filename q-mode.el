@@ -102,13 +102,13 @@
   :type 'file
   :group 'q)
 
-(defcustom q-server ""
-  "If non-nil, Q-Shell will ssh to the remote server before executing q."
+(defcustom q-host ""
+  "If non-nil, Q-Shell will ssh to the remote host before executing q."
   :type 'string
   :group 'q)
 
 (defcustom q-user ""
-  "User to use when 'ssh'-ing q to theremote server."
+  "User to use when 'ssh'-ing to the remote host."
   :type 'string
   :group 'q)
 
@@ -157,7 +157,7 @@
   :group 'q-qcon)
 
 (defcustom q-qcon-server ""
-  "Remote q servern"
+  "Remote q server"
   :type 'string
   :group 'q-qcon)
 
@@ -167,7 +167,7 @@
   :group 'q-qcon)
 
 (defcustom q-qcon-user ""
-  "If non-nil, qcon will log in to remove q server with this id."
+  "If non-nil, qcon will log in to remote q server with this id."
   :type 'string
   :group 'q-qcon)
 
@@ -213,7 +213,7 @@
           (if (equal server "") "localhost" server)
           (unless (equal port "") (format ":%s" port))))
 
-(defun q (&optional svr usr args)
+(defun q (&optional host user args)
   "Start a new q process.  Optional argument ARGS specifies the
 command line args to use when executing q; the default ARGS are
 obtained from the q-init customization variables.
@@ -221,22 +221,22 @@ obtained from the q-init customization variables.
 In interactive use, a prefix argument directs this command
 to read the command line arguments from the minibuffer."
   (interactive (let* ((args (q-default-args))
-                      (usr  q-user)
-                      (svr  q-server))
+                      (user  q-user)
+                      (host  q-host))
                  (if current-prefix-arg
-                     (list (read-string "Server: " svr)
-                           (read-string "User: " usr)
+                     (list (read-string "Host: " host)
+                           (read-string "User: " user)
                            (read-string "Q command line args: " args))
-                   (list svr usr args))))
+                   (list host user args))))
 
-  (unless (equal usr "") (setq svr (format "%s@%s" usr svr)))
+  (unless (equal user "") (setq host (format "%s@%s" user host)))
   (let* ((cmd inferior-q-program-name)
          (cmd (if (equal args "") cmd (concat cmd args)))
-         (qs (not (equal svr "")))
+         (qs (not (equal host "")))
          (port (if (with-temp-buffer (setq case-fold-search nil)(string-match "-p *\\([0-9]+\\)" args)) (match-string 1 args) ""))
-         (buffer (get-buffer-create (format "*%s*" (q-shell-name svr port))))
+         (buffer (get-buffer-create (format "*%s*" (q-shell-name host port))))
          (command (if qs "ssh" (getenv "SHELL")))
-         (switches (append (if qs (list "-t" svr) (list "-c")) (list cmd)))
+         (switches (append (if qs (list "-t" host) (list "-c")) (list cmd)))
          process)
     (pop-to-buffer buffer)
     (when (or current-prefix-arg (not (comint-check-proc buffer)))
@@ -255,7 +255,7 @@ to read the command line arguments from the minibuffer."
   "Connect to a pre-existing q process.
 Optional argument ARGS specifies the command line args to use
 when executing qcon; the default ARGS are obtained from the
-q-server and q-init-port customization variables.
+q-host and q-init-port customization variables.
 
 In interactive use, a prefix argument directs this command
 to read the command line arguments from the minibuffer."
@@ -545,7 +545,7 @@ to read the command line arguments from the minibuffer."
   (setq comint-prompt-regexp "^\\(q)+\\|[^:]*:[0-9]+>\\)")
   (set (make-local-variable 'font-lock-defaults) q-font-lock-defaults)
   (set (make-local-variable 'comint-process-echoes) nil)
-  ;;  (set (make-local-variable 'comint-process-echoes) (not (equal q-server "")))
+  ;;  (set (make-local-variable 'comint-process-echoes) (not (equal q-host "")))
   (set (make-local-variable 'comint-password-prompt-regexp) "[Pp]assword")
   (font-lock-mode t)
   (setq truncate-lines t)
