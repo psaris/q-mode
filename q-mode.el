@@ -104,26 +104,31 @@
 
 (defcustom q-host ""
   "If non-nil, Q-Shell will ssh to the remote host before executing q."
+  :safe 'stringp
   :type 'string
   :group 'q)
 
 (defcustom q-user ""
   "User to use when 'ssh'-ing to the remote host."
+  :safe 'stringp
   :type 'string
   :group 'q)
 
 (defcustom q-comment-start "/"
   "String to insert to start a new comment (some prefer a double forward slash)."
+  :safe 'stringp
   :type 'string
   :group 'q)
 
 (defcustom q-msg-prefix ""
   "String to prefix every message sent to inferior q[con] process."
+  :safe 'stringp
   :type 'string
   :group 'q)
 
 (defcustom q-msg-postfix ""
   "String to postfix every message sent to inferior q[con] process."
+  :safe 'stringp
   :type 'string
   :group 'q)
 
@@ -131,16 +136,19 @@
 
 (defcustom q-init-port 0
   "If non-zero, Q-Shell will start with the specified server port."
+  :safe 'integerp
   :type 'integer
   :group 'q-init)
 
 (defcustom q-init-slaves 0
   "If non-zero, Q-Shell will start with the specified number of slaves."
+  :safe 'integerp
   :type 'integer
   :group 'q-init)
 
 (defcustom q-init-workspace 0
   "If non-zero, Q-Shell will start with the specified workspace limit."
+  :safe 'integerp
   :type 'integer
   :group 'q-init)
 
@@ -158,21 +166,25 @@
 
 (defcustom q-qcon-server ""
   "Remote q server"
+  :safe 'stringp
   :type 'string
   :group 'q-qcon)
 
 (defcustom q-qcon-port 5000
   "Port for remote q server."
+  :safe 'integerp
   :type 'integer
   :group 'q-qcon)
 
 (defcustom q-qcon-user ""
   "If non-nil, qcon will log in to remote q server with this id."
+  :safe 'stringp
   :type 'string
   :group 'q-qcon)
 
 (defcustom q-qcon-password ""
   "Password for remote q server."
+  :safe 'stringp
   :type 'string
   :group 'q-qcon)
 
