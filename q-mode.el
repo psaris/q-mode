@@ -259,9 +259,9 @@ to read the command line arguments from the minibuffer."
 
       (setq comint-input-ring-file-name "~/.q_history")
       (comint-read-input-ring t)
-      (set-process-sentinel process 'q-process-sentinel)
-      (unless q-active-buffer (q-activate-buffer (buffer-name buffer)))
-      process)))
+      (set-process-sentinel process 'q-process-sentinel))
+    (q-activate-buffer (buffer-name buffer))
+    process))
 
 (defun qcon (&optional args)
   "Connect to a pre-existing q process.
@@ -285,9 +285,9 @@ to read the command line arguments from the minibuffer."
       (setq process (get-buffer-process (comint-exec buffer "qcon" inferior-qcon-program-name nil (list args))))
       (setq comint-input-ring-file-name (concat (getenv "HOME") "/.qcon_history"))
       (comint-read-input-ring)
-      (set-process-sentinel process 'q-process-sentinel)
-      (unless q-active-buffer (q-activate-buffer (buffer-name buffer)))
-      process)))
+      (set-process-sentinel process 'q-process-sentinel))
+    (q-activate-buffer (buffer-name buffer))
+    process))
 
 (defun q-show-q-buffer ()
   "Switch to the active q process, or start a new one (passing in args)."
