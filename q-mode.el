@@ -255,7 +255,7 @@ to read the command line arguments from the minibuffer."
       (message "Starting q with the following command: \"%s\"" cmd)
       (inferior-q-mode)
       (setq args (list buffer "q" command nil switches))
-      (setq process (get-buffer-process (apply `comint-exec args)))
+      (setq process (get-buffer-process (apply 'comint-exec args)))
 
       (setq comint-input-ring-file-name "~/.q_history")
       (comint-read-input-ring t)
@@ -323,7 +323,7 @@ to read the command line arguments from the minibuffer."
   text)
 
 (defun q-send-string (string)
-  (unless (cdr (assoc `comint-process-echoes (buffer-local-variables (get-buffer q-active-buffer))))
+  (unless (cdr (assoc 'comint-process-echoes (buffer-local-variables (get-buffer q-active-buffer))))
     (let ((msg (concat q-msg-prefix string q-msg-postfix)))
       (with-current-buffer (get-buffer q-active-buffer)
         (goto-char (point-max))
@@ -352,7 +352,7 @@ to read the command line arguments from the minibuffer."
     (goto-char (point-at-eol))          ; go to end of line
     (let ((start (re-search-backward q-function-regex)) ; find beinning of function
           (end   (re-search-forward ":")) ; find end of function name
-          (fun   (thing-at-point `sexp))) ; find function body
+          (fun   (thing-at-point 'sexp))) ; find function body
       (q-send-string (q-strip (concat (buffer-substring start end) fun))))))
 
 (defun q-load-file()
@@ -553,7 +553,7 @@ to read the command line arguments from the minibuffer."
 (define-derived-mode inferior-q-mode comint-mode "Q-Shell"
   "Major mode for interacting with a q interpreter"
   :syntax-table q-mode-syntax-table
-  (add-hook (make-local-variable `comint-output-filter-functions) 'comint-strip-ctrl-m)
+  (add-hook (make-local-variable 'comint-output-filter-functions) 'comint-strip-ctrl-m)
   (setq comint-prompt-regexp "^\\(q)+\\|[^:]*:[0-9]+>\\)")
   (set (make-local-variable 'font-lock-defaults) q-font-lock-defaults)
   (set (make-local-variable 'comint-process-echoes) nil)
@@ -570,7 +570,7 @@ to read the command line arguments from the minibuffer."
 
 (define-derived-mode q-mode nil "Q-Script"
   "Major mode for editing q language files"
-  :group `q
+  :group 'q
   (set (make-local-variable 'font-lock-defaults) q-font-lock-defaults)
   (set (make-local-variable 'comment-start) q-comment-start)
   (set (make-local-variable 'comment-start-skip) "\\(/+\\)\\s *")
