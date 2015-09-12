@@ -317,9 +317,10 @@ to read the command line arguments from the minibuffer."
         (insert-before-markers message)))))
 
 (defun q-strip (text)                 ; order matters, don't rearrange
-  (while (string-match "[ \t\n;]/.*" text)(setq text (replace-match "" t t text))) ; / comments
-  (while (string-match "[ \t]+$" text) (setq text (replace-match "" t nil text))) ; excess white space
-  (while (string-match "\n[ \t]+" text) (setq text (replace-match " " t t text))) ; fold functions
+  (while (string-match "^[^\\\\].*[ \t\n;]\\(/.*\\)" text)(setq text (replace-match "" t t text 1))) ; / comments
+  (while (string-match "^/.+$" text)(setq text (replace-match "" t t text))) ; / comments
+  (while (string-match "[ \t\n]+$" text) (setq text (replace-match "" t t text))) ; excess white space
+  (while (string-match "\n[ \t]+" text) (setq text (replace-match "" t t text))) ; fold functions
   text)
 
 (defun q-send-string (string)
