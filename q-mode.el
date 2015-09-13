@@ -75,6 +75,10 @@
 ;; `inferior-qcon-program-name` variables can be changed depending on
 ;; your environment.
 
+;; Q-mode indents each level based on `q-indent-step`.  To indent code
+;; based on {}-, ()-, and []-groups instead of equal width tabs, you
+;; can set this value to nil.
+
 ;; The variables `q-msg-prefix` and `q-msg-postfix` can be customized
 ;; to prefix and postfix every msg sent to the inferior q[con]
 ;; process. This can be used to change directories before evaluating
@@ -112,6 +116,11 @@
   "User to use when 'ssh'-ing to the remote host."
   :safe 'stringp
   :type 'string
+  :group 'q)
+
+(defcustom q-indent-step 1
+  "If nil, alligns code to {}-, ()-, and []-groups. Otherwise, each level indents by this amount."
+  :type '(choice (const nil) integer)
   :group 'q)
 
 (defcustom q-comment-start "/"
@@ -576,6 +585,7 @@ to read the command line arguments from the minibuffer."
   (set (make-local-variable 'comment-start) q-comment-start)
   (set (make-local-variable 'comment-start-skip) "\\(/+\\)\\s *")
   (set (make-local-variable 'comment-end) "")
+  (set (make-local-variable 'indent-line-function) 'q-indent-line)
   (easy-menu-add q-menu)
   ;; enable imenu
   (set (make-local-variable 'imenu-generic-expression) q-imenu-generic-expression)
@@ -583,6 +593,39 @@ to read the command line arguments from the minibuffer."
 
 ;; enable hide-show minor mode
 (add-to-list 'hs-special-modes-alist '(q-mode "{" "}" "^\\s */" nil hs-c-like-adjust-block-beginning))
+
+;;; Indentation
+
+(defun q-indent-line ()
+  "Indent current line as q."
+  (let ((indent (condition-case nil
+                    (save-excursion
+                      (forward-line 0)
+                      (or (if (null q-indent-step)
+                              (q-compute-indent-sexp)
+                            (* q-indent-step (q-compute-indent-tab)))
+                          0))
+                  (error 0))))
+    (indent-line-to indent)))
+
+(defun q-compute-indent-sexp ()
+  "Compute the indent for a line using sexp."
+    (backward-up-list)
+    (let ((savepos (point)))
+      (beginning-of-line)
+      (+ 1 (- savepos (point)))))
+
+(defun q-compute-indent-tab ()
+  "Compute the indent for a line using tabs."
+    (let ((n 0)
+          pos)
+      (condition-case err
+          (while (progn (setq pos (point))
+                        (backward-up-list)
+                        (/= (point) pos))
+            (setq n (+ n 1))
+            n)
+        (scan-error n))))
 
 (provide 'q-mode)
 
