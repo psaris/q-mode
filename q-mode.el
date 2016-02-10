@@ -583,7 +583,7 @@ to read the command line arguments from the minibuffer."
   :group 'q
   (set (make-local-variable 'font-lock-defaults) q-font-lock-defaults)
   (set (make-local-variable 'comment-start) q-comment-start)
-  (set (make-local-variable 'comment-start-skip) "\\(/+\\)\\s *")
+  (set (make-local-variable 'comment-start-skip) "/+ *")
   (set (make-local-variable 'comment-end) "")
   (set (make-local-variable 'indent-line-function) 'q-indent-line)
   (easy-menu-add q-menu)
