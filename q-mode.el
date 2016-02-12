@@ -592,7 +592,7 @@ to read the command line arguments from the minibuffer."
   )
 
 ;; enable hide-show minor mode
-(add-to-list 'hs-special-modes-alist '(q-mode "{" "}" "^\\s */" nil hs-c-like-adjust-block-beginning))
+(add-to-list 'hs-special-modes-alist '(q-mode "{" "}" "/" nil nil))
 
 ;;; Indentation
 
