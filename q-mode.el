@@ -452,7 +452,7 @@ to read the command line arguments from the minibuffer."
             (regexp-opt
              '( "aj" "aj0" "all" "and" "any" "asc" "asof" "attr" "avgs" "ceiling"
                 "cols" "count" "cross" "csv" "cut" "deltas" "desc"
-                "differ" "distinct" "dsave" "each" "ej" "enlist" "eval" "except" "fby" "fills"
+                "differ" "distinct" "dsave" "each" "ej" "ema" "enlist" "eval" "except" "fby" "fills"
                 "first" "fkeys" "flip" "floor" "get" "group" "gtime" "hclose" "hcount"
                 "hdel" "hopen" "hsym" "iasc" "idesc" "ij" "inter" "inv" "key" "keys"
                 "lj" "ljf" "load" "lower" "lsq" "ltime" "ltrim" "mavg" "maxs" "mcount" "md5"
