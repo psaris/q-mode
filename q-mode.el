@@ -1,6 +1,6 @@
 ;;; q-mode.el --- A q editing mode    -*- coding: utf-8 -*-
 
-;; Copyright (C) 2006-2015 Nick Psaris <nick.psaris@gmail.com>
+;; Copyright (C) 2006-2016 Nick Psaris <nick.psaris@gmail.com>
 ;; Keywords: faces files q
 ;; URL: https://github.com/psaris/q-mode
 
@@ -457,7 +457,7 @@ to read the command line arguments from the minibuffer."
                 "hdel" "hopen" "hsym" "iasc" "idesc" "ij" "inter" "inv" "key" "keys"
                 "lj" "ljf" "load" "lower" "lsq" "ltime" "ltrim" "mavg" "maxs" "mcount" "md5"
                 "mdev" "med" "meta" "mins" "mmax" "mmin" "mmu" "mod" "msum" "neg"
-                "next" "not" "null" "or" "over" "parse" "peach" "pj" "plist" "prds" "prior"
+                "next" "not" "null" "or" "over" "parse" "peach" "pj" "prds" "prior"
                 "prev" "rand" "rank" "ratios" "raze" "read0" "read1" "reciprocal" "reval"
                 "reverse" "rload" "rotate" "rsave" "rtrim" "save" "scan" "scov" "sdev" "set" "show"
                 "signum" "ssr" "string" "sublist" "sums" "sv" "svar" "system" "tables" "til"
