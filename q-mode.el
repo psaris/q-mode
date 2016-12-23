@@ -161,6 +161,12 @@
   :type 'integer
   :group 'q-init)
 
+(defcustom q-init-garbage-collect nil
+  "If non-nil, Q-Shell will start with garbage collection enabled."
+  :safe 'booleanp
+  :type 'boolean
+  :group 'q-init)
+
 (defcustom q-init-file ""
   "If non-empty, Q-Shell will load the specified file."
   :type 'file
@@ -220,6 +226,7 @@
     (unless (equal q-init-port 0) (setq args (concat args (format " -p %s" q-init-port))))
     (unless (equal q-init-slaves 0) (setq args (concat args (format " -s %s" q-init-slaves))))
     (unless (equal q-init-workspace 0) (setq args (concat args (format " -w %s" q-init-workspace))))
+    (unless (not q-init-garbage-collect) (setq args (concat args " -g 1")))
     args))
 
 (defun q-qcon-default-args ()
