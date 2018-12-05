@@ -379,6 +379,14 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (interactive)
   (q-eval-region (point-min) (point-max)))
 
+(defvar q-function-regex
+  "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\)*\\s *\\):\\s *{"
+  "Regular expression used to find function declarations.")
+
+(defvar q-variable-regex
+  "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\)*\\s *\\)[-.~=!@#$%^&*_+|,<>?]?::?"
+  "Regular expression used to find variable declarations.")
+
 (defun q-eval-function ()
   "Send the current function to the inferior q[con] process."
   (interactive)
@@ -496,14 +504,6 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
                   ".z.po" ".z.pp" ".z.ps" ".z.pw" ".z.s" ".z.t" ".z.ts" ".z.u" ".z.vs"
                   ".z.w" ".z.x" ".z.z" ".z.n" ".z.p" ".z.ws" ".z.bm") `words))
   "Constants for q mode.")
-
-(defvar q-function-regex
-  "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\)*\\s *\\):\\s *{"
-  "Regular expression used to find function declarations.")
-
-(defvar q-variable-regex
-  "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\)*\\s *\\)[-.~=!@#$%^&*_+|,<>?]?::?"
-  "Regular expression used to find variable declarations.")
 
 (defvar q-font-lock-keywords
   (list '("^\\\\\\_<.*?$" 0 font-lock-constant-face keep) ; lines starting with a '\' are compile time
