@@ -585,7 +585,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   :syntax-table q-mode-syntax-table
   (add-hook (make-local-variable 'comint-output-filter-functions) 'comint-strip-ctrl-m)
   (setq comint-prompt-regexp "^\\(q)+\\|[^:]*:[0-9]+>\\)")
-  (set (make-local-variable 'font-lock-defaults) q-font-lock-defaults)
+  (setq font-lock-defaults q-font-lock-defaults)
   (set (make-local-variable 'comint-process-echoes) nil)
   ;;  (set (make-local-variable 'comint-process-echoes) (not (equal q-host "")))
   (set (make-local-variable 'comint-password-prompt-regexp) "[Pp]assword")
@@ -599,7 +599,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 (define-derived-mode q-mode nil "Q-Script"
   "Major mode for editing q language files"
   :group 'q
-  (set (make-local-variable 'font-lock-defaults) q-font-lock-defaults)
+  (setq font-lock-defaults q-font-lock-defaults)
   (set (make-local-variable 'comment-start) q-comment-start)
   (set (make-local-variable 'comment-start-skip) "\\(^\\|[ \t]\\)\\(/+[ \t]*\\)")
   (set (make-local-variable 'comment-end) "")
