@@ -447,20 +447,19 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 
 (defvar q-keywords
   (eval-when-compile
-    (concat "\\_<"
-            (regexp-opt
-             '("abs" "acos" "asin" "atan" "avg" "bin" "binr" "by" "cor" "cos" "cov" "dev" "delete"
-               "div" "do" "exec" "exit" "exp" "from" "getenv" "if" "in" "insert" "last"
-               "like" "log" "max" "min" "prd" "select" "setenv" "sin" "sqrt" "ss"
-               "sum" "tan" "update" "var" "wavg" "while" "within" "wsum" "xexp") t) "\\_>"))
+    (regexp-opt
+     '("abs" "acos" "asin" "atan" "avg" "bin" "binr" "by" "cor" "cos" "cov" "dev" "delete"
+       "div" "do" "exec" "exit" "exp" "from" "getenv" "if" "in" "insert" "last"
+       "like" "log" "max" "min" "prd" "select" "setenv" "sin" "sqrt" "ss"
+       "sum" "tan" "update" "var" "wavg" "while" "within" "wsum" "xexp") `words))
   "Keywords for q mode.")
 
 (defvar q-type-words
   (eval-when-compile
-    (concat "\\(`\\_<"
+    (concat "\\(`"
             (regexp-opt '("boolean" "byte" "short" "long" "real" "int" "float" "char" "symbol"
                           "month" "date" "datetime" "minute" "second" "time" "timespan" "timestamp"
-                          "year" "mm" "dd" "hh" "uu" "ss" "week") t) "\\_>\\)\\s *[$]"))
+                          "year" "mm" "dd" "hh" "uu" "ss" "week") t) "\\)\\s *[$]"))
   "Types for q mode.")
 
 (defvar q-builtin-words
@@ -480,16 +479,15 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
                 "signum" "ssr" "string" "sublist" "sums" "sv" "svar" "system" "tables" "til"
                 "trim" "txf" "type" "uj" "ujf" "ungroup" "union" "upper" "upsert" "value"
                 "view" "views" "vs" "where" "wj" "wj1" "ww" "xasc" "xbar" "xcol" "xcols" "xdesc"
-                "xgroup" "xkey" "xlog" "xprev" "xrank") t) "\\_>"))
+                "xgroup" "xkey" "xlog" "xprev" "xrank")) "\\_>"))
   "Builtin functions defined in q.k.")
 
 (defvar q-constant-words
   (eval-when-compile
-    (concat "\\_<"
-            (regexp-opt '(".z.D" ".z.K" ".z.T" ".z.Z" ".z.N" ".z.P" ".z.a" ".z.b" ".z.d" ".z.exit" ".z.f"
-                          ".z.h" ".z.i" ".z.k" ".z.l" ".z.o" ".z.pc" ".z.pg" ".z.ph" ".z.pi"
-                          ".z.po" ".z.pp" ".z.ps" ".z.pw" ".z.s" ".z.t" ".z.ts" ".z.u" ".z.vs"
-                          ".z.w" ".z.x" ".z.z" ".z.n" ".z.p" ".z.ws" ".z.bm") t) "\\_>"))
+    (regexp-opt '(".z.D" ".z.K" ".z.T" ".z.Z" ".z.N" ".z.P" ".z.a" ".z.b" ".z.d" ".z.exit" ".z.f"
+                  ".z.h" ".z.i" ".z.k" ".z.l" ".z.o" ".z.pc" ".z.pg" ".z.ph" ".z.pi"
+                  ".z.po" ".z.pp" ".z.ps" ".z.pw" ".z.s" ".z.t" ".z.ts" ".z.u" ".z.vs"
+                  ".z.w" ".z.x" ".z.z" ".z.n" ".z.p" ".z.ws" ".z.bm") `words))
   "Constants for q mode.")
 
 (defvar q-function-regex
