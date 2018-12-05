@@ -65,6 +65,11 @@
 ;; actived.  Switch to the desired buffer and type `C-c M-RET' to
 ;; activate it.
 
+;; Displaying tables with many columns will wrap around the buffer -
+;; making the data hard to read.  You can use the
+;; `toggle-truncate-lines' function to prevent the wrapping. You can
+;; then scroll left and right in the buffer to see all the columns.
+
 ;; The following commands are available to interact with an inferior
 ;; q[con] process/buffer.  `C-c C-l' sends a single line, `C-c C-f'
 ;; sends the surrounding function, `C-c C-r' sends the selected region
@@ -584,8 +589,6 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (set (make-local-variable 'comint-process-echoes) nil)
   ;;  (set (make-local-variable 'comint-process-echoes) (not (equal q-host "")))
   (set (make-local-variable 'comint-password-prompt-regexp) "[Pp]assword")
-  (font-lock-mode t)
-  (setq truncate-lines t)
   (easy-menu-add q-shell-menu)
   )
 
