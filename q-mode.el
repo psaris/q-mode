@@ -34,7 +34,7 @@
 ;;
 ;;  - scans declarations and places them in a menu.
 ;;
-;; To load `q-mode` on-demand, instead of at startup, add this to your
+;; To load `q-mode' on-demand, instead of at startup, add this to your
 ;; initialization file
 
 ;; (autoload 'q-mode "q-mode")
@@ -55,36 +55,36 @@
 ;; (add-hook 'ess-mode-hook 'remove-ess-q-extn)
 ;; (add-hook 'inferior-ess-mode-hook 'remove-ess-q-extn)
 
-;; Use `M-x q` to start an inferior q shell. Or use `M-x q-qcon` to
+;; Use `M-x q' to start an inferior q shell.  Or use `M-x q-qcon' to
 ;; create an inferior qcon shell to communicate with an existing q
 ;; process.  Both can be prefixed with the universal-argument `C-u` to
 ;; customize the arguments used to start the processes.
 
 ;; The first q[con] session opened becomes the activated buffer.
 ;; To open a new session and send code to the new buffer, it must be
-;; actived.  Switch to the desired buffer and type `C-c M-RET` to
+;; actived.  Switch to the desired buffer and type `C-c M-RET' to
 ;; activate it.
 
 ;; The following commands are available to interact with an inferior
-;; q[con] process/buffer. `C-c C-l` sends a single line, `C-c C-f`
-;; sends the surrounding function, `C-c C-r` sends the selected region
-;; and `C-c C-b` sends the whole buffer.  If the source file exists on
-;; the same machine as the q process, `C-c M-l` can be used to load
+;; q[con] process/buffer.  `C-c C-l' sends a single line, `C-c C-f'
+;; sends the surrounding function, `C-c C-r' sends the selected region
+;; and `C-c C-b' sends the whole buffer.  If the source file exists on
+;; the same machine as the q process, `C-c M-l' can be used to load
 ;; the file associated with the active buffer.
 
-;; `M-x customize-group` can be used to customize the `q` group.
-;; Specifically, the `q-program` and `q-qcon-program` variables can be
+;; `M-x customize-group' can be used to customize the `q' group.
+;; Specifically, the `q-program' and `q-qcon-program' variables can be
 ;; changed depending on your environment.
 
 ;; Q-mode indents each level based on `q-indent-step`.  To indent code
 ;; based on {}-, ()-, and []-groups instead of equal width tabs, you
 ;; can set this value to nil.
 
-;; The variables `q-msg-prefix` and `q-msg-postfix` can be customized
+;; The variables `q-msg-prefix' and `q-msg-postfix' can be customized
 ;; to prefix and postfix every msg sent to the inferior q[con]
-;; process. This can be used to change directories before evaluating
+;; process.  This can be used to change directories before evaluating
 ;; definitions within the q process and then changing back to the root
-;; directory. To make the variables change values depending on which
+;; directory.  To make the variables change values depending on which
 ;; file they are sent from, values can be defined in a single line a
 ;; the top of each .q file:
 
@@ -99,6 +99,8 @@
 
 
 (require 'comint)
+
+;;; Code:
 
 (defgroup q nil "Major mode for editing q code" :group 'languages)
 
@@ -120,7 +122,7 @@
   :group 'q)
 
 (defcustom q-indent-step 1
-  "If nil, alligns code to {}-, ()-, and []-groups. Otherwise, each level indents by this amount."
+  "If nil, alligns code to {}-, ()-, and []-groups.  Otherwise, each level indents by this amount."
   :type '(choice (const nil) integer)
   :group 'q)
 
@@ -181,7 +183,7 @@
   :group 'q-qcon)
 
 (defcustom q-qcon-server ""
-  "Remote q server"
+  "Remote q server."
   :safe 'stringp
   :type 'string
   :group 'q-qcon)
@@ -210,13 +212,15 @@
   (customize-group "q"))
 
 (defvar q-active-buffer nil
-  "The name of the q-shell buffer to send q commands")
+  "The name of the q-shell buffer to send q commands.")
 
 (defun q-activate-this-buffer ()
+  "Set the `q-activate-buffer' to the currently active buffer."
   (interactive)
   (q-activate-buffer (current-buffer)))
 
 (defun q-activate-buffer (buffer)
+  "Set the `q-active-buffer' to the supplied BUFFER."
   (interactive "bactivate buffer: ")
   (setq q-active-buffer buffer))
 
@@ -237,15 +241,18 @@
     args))
 
 (defun q-shell-name (server port)
-  "Build name of q-shell based on server and port."
+  "Build name of q-shell based on SERVER and PORT."
   (concat "q-"
           (if (equal server "") "localhost" server)
           (unless (equal port "") (format ":%s" port))))
 
 (defun q (&optional host user args)
-  "Start a new q process.  Optional argument ARGS specifies the
-command line args to use when executing q; the default ARGS are
-obtained from the q-init customization variables.
+  "Start a new q process.
+The optional argument HOST and USER allow the q process to be
+started on a remoate machine.  The optional ARGS argument
+qspecifies the command line args to use when executing q; the
+default ARGS are obtained from the q-init customization
+variables.
 
 In interactive use, a prefix argument directs this command
 to read the command line arguments from the minibuffer."
@@ -284,7 +291,7 @@ to read the command line arguments from the minibuffer."
   "Connect to a pre-existing q process.
 Optional argument ARGS specifies the command line args to use
 when executing qcon; the default ARGS are obtained from the
-q-host and q-init-port customization variables.
+`q-host' and `q-init-port' customization variables.
 
 In interactive use, a prefix argument directs this command
 to read the command line arguments from the minibuffer."
@@ -313,7 +320,7 @@ to read the command line arguments from the minibuffer."
     (q)))
 
 (defun q-kill-q-buffer ()
-  "Kill the q process and its buffer"
+  "Kill the q process and its buffer."
   (interactive)
   (let* ((buffer (get-buffer q-active-buffer))
          (process (get-buffer-process buffer)))
@@ -322,7 +329,7 @@ to read the command line arguments from the minibuffer."
 
 (defun q-process-sentinel (process message)
   "Sentinel for use with q processes.
-   This marks the process with a message, at a particular time point."
+This marks the PROCESS with a MESSAGE, at a particular time point."
   (comint-write-input-ring)
   (let ((buffer (process-buffer process)))
     (setq message (substring message 0 -1)) ; strip newline
@@ -334,6 +341,7 @@ to read the command line arguments from the minibuffer."
         (insert-before-markers message)))))
 
 (defun q-strip (text)                 ; order matters, don't rearrange
+  "Strip TEXT of all trailing comments, newlines and excessive whitespace."
   (while (string-match "^\\(?:[^\\\\].*\\)?[ \t]\\(/.*\\)" text)(setq text (replace-match "" t t text 1))) ; / comments
   (while (string-match "^/.+$" text)(setq text (replace-match "" t t text))) ; / comments
   (while (string-match "[ \t\n]+$" text) (setq text (replace-match "" t t text))) ; excess white space
@@ -341,6 +349,7 @@ to read the command line arguments from the minibuffer."
   text)
 
 (defun q-send-string (string)
+  "Send STRING to the inferior q process stored in `q-active-buffer'."
   (unless (cdr (assoc 'comint-process-echoes (buffer-local-variables (get-buffer q-active-buffer))))
     (let ((msg (concat q-msg-prefix string q-msg-postfix)))
       (with-current-buffer (get-buffer q-active-buffer)
@@ -349,7 +358,7 @@ to read the command line arguments from the minibuffer."
       (comint-simple-send (get-buffer-process q-active-buffer) msg))))
 
 (defun q-eval-region (start end)
-  "Send the current region to the inferior q[con] process."
+  "Send the region between START and END to the inferior q[con] process."
   (interactive "r")
   (q-send-string (q-strip (buffer-substring start end))))
 
@@ -386,7 +395,7 @@ to read the command line arguments from the minibuffer."
     (define-key q-shell-mode-map (kbd "C-c M-RET") 'q-activate-this-buffer)
     (set-keymap-parent q-shell-mode-map comint-mode-map)
     q-shell-mode-map)
-  "Keymap for inferior q mode")
+  "Keymap for inferior q mode.")
 
 (defvar q-mode-map
   (let ((q-mode-map (make-sparse-keymap)))
@@ -401,7 +410,7 @@ to read the command line arguments from the minibuffer."
     (define-key q-mode-map "\C-c\C-z"   'q-customize)
     (define-key q-mode-map "\C-c\C-c"   'comment-region)
     q-mode-map)
-  "Keymap for q major mode")
+  "Keymap for q major mode.")
 
 ;; menu bars
 (easy-menu-define q-menu q-mode-map
@@ -444,7 +453,7 @@ to read the command line arguments from the minibuffer."
                "div" "do" "exec" "exit" "exp" "from" "getenv" "if" "in" "insert" "last"
                "like" "log" "max" "min" "prd" "select" "setenv" "sin" "sqrt" "ss"
                "sum" "tan" "update" "var" "wavg" "while" "within" "wsum" "xexp") t) "\\_>"))
-  "Keywords for q mode")
+  "Keywords for q mode.")
 
 (defvar q-type-words
   (eval-when-compile
@@ -452,7 +461,7 @@ to read the command line arguments from the minibuffer."
             (regexp-opt '("boolean" "byte" "short" "long" "real" "int" "float" "char" "symbol"
                           "month" "date" "datetime" "minute" "second" "time" "timespan" "timestamp"
                           "year" "mm" "dd" "hh" "uu" "ss" "week") t) "\\_>\\)\\s *[$]"))
-  "Types for q mode")
+  "Types for q mode.")
 
 (defvar q-builtin-words
   (eval-when-compile
@@ -472,7 +481,7 @@ to read the command line arguments from the minibuffer."
                 "trim" "txf" "type" "uj" "ujf" "ungroup" "union" "upper" "upsert" "value"
                 "view" "views" "vs" "where" "wj" "wj1" "ww" "xasc" "xbar" "xcol" "xcols" "xdesc"
                 "xgroup" "xkey" "xlog" "xprev" "xrank") t) "\\_>"))
-  "Builtin functions defined in q.k")
+  "Builtin functions defined in q.k.")
 
 (defvar q-constant-words
   (eval-when-compile
@@ -481,21 +490,21 @@ to read the command line arguments from the minibuffer."
                           ".z.h" ".z.i" ".z.k" ".z.l" ".z.o" ".z.pc" ".z.pg" ".z.ph" ".z.pi"
                           ".z.po" ".z.pp" ".z.ps" ".z.pw" ".z.s" ".z.t" ".z.ts" ".z.u" ".z.vs"
                           ".z.w" ".z.x" ".z.z" ".z.n" ".z.p" ".z.ws" ".z.bm") t) "\\_>"))
-  "Constants for q mode")
+  "Constants for q mode.")
 
 (defvar q-function-regex
   "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\)*\\s *\\):\\s *{"
-  "Regular expression used to find function declarations")
+  "Regular expression used to find function declarations.")
 
 (defvar q-variable-regex
   "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\)*\\s *\\)[-.~=!@#$%^&*_+|,<>?]?::?"
-  "Regular expression used to find variable declarations")
+  "Regular expression used to find variable declarations.")
 
 (defvar q-font-lock-keywords
   (list '("^\\\\\\_<.*?$" 0 font-lock-constant-face keep) ; lines starting with a '\' are compile time
         (list q-function-regex 1 font-lock-function-name-face nil) ; functions
         )
-  "Minimal highlighting expressions for q mode")
+  "Minimal highlighting expressions for q mode.")
 
 (defvar q-font-lock-keywords-1 ; types
   (append q-font-lock-keywords
@@ -510,7 +519,7 @@ to read the command line arguments from the minibuffer."
            (cons q-keywords  'font-lock-keyword-face)   ; select from
            (cons q-builtin-words 'font-lock-builtin-face) ; q.k
            ))
-  "More highlighting expressions for q mode")
+  "More highlighting expressions for q mode.")
 
 (defvar q-font-lock-keywords-2 ; keywords & literals
   (append q-font-lock-keywords-1
@@ -528,7 +537,7 @@ to read the command line arguments from the minibuffer."
            '("\\_<0[nNwW][cefghijmndzuvtp]?\\_>" . font-lock-constant-face) ; null/infinity
            '("\\(?:TODO\\|NOTE\\)\\:?" 0 font-lock-warning-face t) ; TODO
            ))
-  "Most highlighting expressions for q mode")
+  "Most highlighting expressions for q mode.")
 
 (defvar q-font-lock-defaults
   '((q-font-lock-keywords q-font-lock-keywords-1 q-font-lock-keywords-2)
@@ -538,7 +547,7 @@ to read the command line arguments from the minibuffer."
                                      ("\\(?:^\\|[ \t]\\)\\(\/\\)"    1 "<  ") ; comments start flush left or after white space
                                      ("\\(\"\\)\\(?:[^\"\\\\]\\|\\\\.\\)*?\\(\"\\)" (1 "\"") (2 "\""))
                                      )))
-  "List of Font lock keywords to properly highlight q syntax")
+  "List of font lock keywords to properly highlight q syntax.")
 
 
 ;; syntax table
@@ -564,7 +573,7 @@ to read the command line arguments from the minibuffer."
     (modify-syntax-entry ?\| ".  " q-mode-syntax-table) ; treat | as punctuation
     (modify-syntax-entry ?\` "'  " q-mode-syntax-table) ; treat ` as expression prefix
     q-mode-syntax-table)
-  "Syntax table for q-mode")
+  "Syntax table for `q-mode'.")
 
 ;; modes
 
@@ -584,7 +593,7 @@ to read the command line arguments from the minibuffer."
 
 (defvar q-imenu-generic-expression
   (list (list nil (concat "^" q-variable-regex) 1))
-  "Regular expresions to get q expressions into imenu")
+  "Regular expresions to get q expressions into imenu.")
 
 (define-derived-mode q-mode nil "Q-Script"
   "Major mode for editing q language files"
