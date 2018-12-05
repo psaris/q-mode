@@ -1,7 +1,9 @@
 ;;; q-mode.el --- A q editing mode    -*- coding: utf-8 -*-
 
-;; Copyright (C) 2006-2016 Nick Psaris <nick.psaris@gmail.com>
+;; Copyright (C) 2006-2018 Nick Psaris <nick.psaris@gmail.com>
 ;; Keywords: faces files q
+;; Created: 8 Jun 2015
+;; Version: 0.1
 ;; URL: https://github.com/psaris/q-mode
 
 ;; This file is not part of GNU Emacs.
@@ -53,7 +55,7 @@
 ;; (add-hook 'ess-mode-hook 'remove-ess-q-extn)
 ;; (add-hook 'inferior-ess-mode-hook 'remove-ess-q-extn)
 
-;; Use `M-x q` to start an inferior q shell. Or use `M-x qcon` to
+;; Use `M-x q` to start an inferior q shell. Or use `M-x q-qcon` to
 ;; create an inferior qcon shell to communicate with an existing q
 ;; process.  Both can be prefixed with the universal-argument `C-u` to
 ;; customize the arguments used to start the processes.
@@ -71,9 +73,8 @@
 ;; the file associated with the active buffer.
 
 ;; `M-x customize-group` can be used to customize the `q` group.
-;; Specifically, the `inferior-q-program-name` and
-;; `inferior-qcon-program-name` variables can be changed depending on
-;; your environment.
+;; Specifically, the `q-program` and `q-qcon-program` variables can be
+;; changed depending on your environment.
 
 ;; Q-mode indents each level based on `q-indent-step`.  To indent code
 ;; based on {}-, ()-, and []-groups instead of equal width tabs, you
@@ -101,7 +102,7 @@
 
 (defgroup q nil "Major mode for editing q code" :group 'languages)
 
-(defcustom inferior-q-program-name "q"
+(defcustom q-program "q"
   "Program name for invoking an inferior q."
   :type 'file
   :group 'q)
@@ -174,7 +175,7 @@
 
 (defgroup q-qcon nil "Q qcon arguments" :group 'q)
 
-(defcustom inferior-qcon-program-name "qcon"
+(defcustom q-qcon-program "qcon"
   "Program name for invoking an inferior qcon."
   :type 'file
   :group 'q-qcon)
@@ -258,7 +259,7 @@ to read the command line arguments from the minibuffer."
                    (list host user args))))
 
   (unless (equal user "") (setq host (format "%s@%s" user host)))
-  (let* ((cmd inferior-q-program-name)
+  (let* ((cmd q-program)
          (cmd (if (equal args "") cmd (concat cmd args)))
          (qs (not (equal host "")))
          (port (if (with-temp-buffer (setq case-fold-search nil)(string-match "-p *\\([0-9]+\\)" args)) (match-string 1 args) ""))
@@ -269,7 +270,7 @@ to read the command line arguments from the minibuffer."
     (pop-to-buffer buffer)
     (when (or current-prefix-arg (not (comint-check-proc buffer)))
       (message "Starting q with the following command: \"%s\"" cmd)
-      (inferior-q-mode)
+      (q-shell-mode)
       (setq args (list buffer "q" command nil switches))
       (setq process (get-buffer-process (apply 'comint-exec args)))
 
@@ -279,7 +280,7 @@ to read the command line arguments from the minibuffer."
     (q-activate-buffer (buffer-name buffer))
     process))
 
-(defun qcon (&optional args)
+(defun q-qcon (&optional args)
   "Connect to a pre-existing q process.
 Optional argument ARGS specifies the command line args to use
 when executing qcon; the default ARGS are obtained from the
@@ -295,10 +296,10 @@ to read the command line arguments from the minibuffer."
          process)
     (pop-to-buffer buffer)
     (when (or current-prefix-arg (not (comint-check-proc buffer)))
-      (message "Starting qcon with the following cmd: \"%s\"" (concat inferior-qcon-program-name " " args))
-      (inferior-q-mode)
+      (message "Starting qcon with the following cmd: \"%s\"" (concat q-qcon-program " " args))
+      (q-shell-mode)
       (setq comint-process-echoes nil)
-      (setq process (get-buffer-process (comint-exec buffer "qcon" inferior-qcon-program-name nil (list args))))
+      (setq process (get-buffer-process (comint-exec buffer "qcon" q-qcon-program nil (list args))))
       (setq comint-input-ring-file-name (concat (getenv "HOME") "/.qcon_history"))
       (comint-read-input-ring)
       (set-process-sentinel process 'q-process-sentinel))
@@ -380,11 +381,11 @@ to read the command line arguments from the minibuffer."
 
 ;; keymaps
 
-(defvar inferior-q-mode-map
-  (let ((inferior-q-mode-map (make-sparse-keymap)))
-    (define-key inferior-q-mode-map (kbd "C-c M-RET") 'q-activate-this-buffer)
-    (set-keymap-parent inferior-q-mode-map comint-mode-map)
-    inferior-q-mode-map)
+(defvar q-shell-mode-map
+  (let ((q-shell-mode-map (make-sparse-keymap)))
+    (define-key q-shell-mode-map (kbd "C-c M-RET") 'q-activate-this-buffer)
+    (set-keymap-parent q-shell-mode-map comint-mode-map)
+    q-shell-mode-map)
   "Keymap for inferior q mode")
 
 (defvar q-mode-map
@@ -419,7 +420,7 @@ to read the command line arguments from the minibuffer."
     ["Kill Q Shell"   q-kill-q-buffer t]
     ))
 
-(easy-menu-define inferior-q-menu inferior-q-mode-map
+(easy-menu-define q-shell-menu q-shell-mode-map
   "Menubar for q shell commands"
   '("Q-Shell"
     ["Activate Buffer" q-activate-this-buffer t]
@@ -567,7 +568,7 @@ to read the command line arguments from the minibuffer."
 
 ;; modes
 
-(define-derived-mode inferior-q-mode comint-mode "Q-Shell"
+(define-derived-mode q-shell-mode comint-mode "Q-Shell"
   "Major mode for interacting with a q interpreter"
   :syntax-table q-mode-syntax-table
   (add-hook (make-local-variable 'comint-output-filter-functions) 'comint-strip-ctrl-m)
@@ -578,7 +579,7 @@ to read the command line arguments from the minibuffer."
   (set (make-local-variable 'comint-password-prompt-regexp) "[Pp]assword")
   (font-lock-mode t)
   (setq truncate-lines t)
-  (easy-menu-add inferior-q-menu)
+  (easy-menu-add q-shell-menu)
   )
 
 (defvar q-imenu-generic-expression
