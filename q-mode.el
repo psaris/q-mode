@@ -347,10 +347,10 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 
 (defun q-strip (text)                 ; order matters, don't rearrange
   "Strip TEXT of all trailing comments, newlines and excessive whitespace."
-  (while (string-match "^\\(?:[^\\\\].*\\)?[ \t]\\(/.*\\)" text)(setq text (replace-match "" t t text 1))) ; / comments
-  (while (string-match "^/.+$" text)(setq text (replace-match "" t t text))) ; / comments
-  (while (string-match "[ \t\n]+$" text) (setq text (replace-match "" t t text))) ; excess white space
-  (while (string-match "\n[ \t]+" text) (setq text (replace-match " " t t text))) ; fold functions
+  (setq text (replace-regexp-in-string "^\\(?:[^\\\\].*\\)?[ \t]\\(/.*\\)" "" text t t 1)) ; / comments
+  (setq text (replace-regexp-in-string "^/.+$" "" text t t)) ; / comments
+  (setq text (replace-regexp-in-string "[ \t\n]+$" "" text t t)) ; excess white space
+  (setq text (replace-regexp-in-string "\n[ \t]+" " " text t t)) ; fold functions
   text)
 
 (defun q-send-string (string)
