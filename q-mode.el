@@ -251,6 +251,7 @@
           (if (equal server "") "localhost" server)
           (unless (equal port "") (format ":%s" port))))
 
+;;;###autoload
 (defun q (&optional host user args)
   "Start a new q process.
 The optional argument HOST and USER allow the q process to be
@@ -292,6 +293,7 @@ to read the command line arguments from the minibuffer."
     (q-activate-buffer (buffer-name buffer))
     process))
 
+;;;###autoload
 (defun q-qcon (&optional args)
   "Connect to a pre-existing q process.
 Optional argument ARGS specifies the command line args to use
@@ -580,6 +582,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 
 ;; modes
 
+;;;###autoload
 (define-derived-mode q-shell-mode comint-mode "Q-Shell"
   "Major mode for interacting with a q interpreter"
   :syntax-table q-mode-syntax-table
@@ -596,6 +599,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (list (list nil (concat "^" q-variable-regex) 1))
   "Regular expresions to get q expressions into imenu.")
 
+;;;###autoload
 (define-derived-mode q-mode nil "Q-Script"
   "Major mode for editing q language files"
   :group 'q
