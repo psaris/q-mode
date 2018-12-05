@@ -227,7 +227,7 @@
 (defun q-default-args ()
   "Build a list of default args out of the q-init customizable variables."
   (let ((args ""))
-    (unless (equal q-init-file "") (setq args (format " %s" q-init-file)))
+    (unless (equal q-init-file "") (setq args (format " %s" (shell-quote-argument q-init-file))))
     (unless (equal q-init-port 0) (setq args (concat args (format " -p %s" q-init-port))))
     (unless (equal q-init-slaves 0) (setq args (concat args (format " -s %s" q-init-slaves))))
     (unless (equal q-init-workspace 0) (setq args (concat args (format " -w %s" q-init-workspace))))
