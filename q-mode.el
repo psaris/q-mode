@@ -1,7 +1,8 @@
-;;; q-mode.el --- A q editing mode    -*- coding: utf-8 -*-
+;;; q-mode.el --- A q editing mode    -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2006-2018 Nick Psaris <nick.psaris@gmail.com>
 ;; Keywords: faces files q
+;; Package-Requires: ((emacs "24"))
 ;; Created: 8 Jun 2015
 ;; Version: 0.1
 ;; URL: https://github.com/psaris/q-mode
