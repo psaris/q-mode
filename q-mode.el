@@ -612,9 +612,6 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (set (make-local-variable 'imenu-generic-expression) q-imenu-generic-expression)
   )
 
-;; enable hide-show minor mode
-(add-to-list 'hs-special-modes-alist '(q-mode "{" "}" "/" nil nil))
-
 ;;; Indentation
 
 (defun q-indent-line ()
