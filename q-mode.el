@@ -596,7 +596,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 
 (defvar q-imenu-generic-expression
   (list (list nil (concat "^" q-variable-regex) 1))
-  "Regular expresions to get q expressions into imenu.")
+  "Regular expressions to get q expressions into imenu.")
 
 ;;;###autoload
 (define-derived-mode q-mode prog-mode "Q-Script"
