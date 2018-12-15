@@ -599,7 +599,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   "Regular expresions to get q expressions into imenu.")
 
 ;;;###autoload
-(define-derived-mode q-mode nil "Q-Script"
+(define-derived-mode q-mode prog-mode "Q-Script"
   "Major mode for editing q language files"
   :group 'q
   (setq font-lock-defaults q-font-lock-defaults)
