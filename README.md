@@ -2,7 +2,9 @@
 
 ## Features
 
-q-mode is a major mode for editing q (the language written by [Kx Systems](http://www.kx.com)) in [Emacs](https://www.gnu.org/software/emacs/).
+q-mode is a major mode for editing q (the language written
+by [Kx Systems](http://www.kx.com))
+in [Emacs](https://www.gnu.org/software/emacs/).
 
 Some of its major features include:
 - syntax highlighting (font lock),
@@ -39,7 +41,7 @@ initialization file.
 
 ## Usage
 
-Use `M-x q` to start an inferior q shell. Or use `M-x qcon` to
+Use `M-x q` to start an inferior q shell. Or use `M-x q-qcon` to
 create an inferior qcon shell to communicate with an existing q
 process.  Both can be prefixed with the universal-argument `C-u` to
 customize the arguments used to start the processes.
@@ -48,6 +50,11 @@ The first q[con] session opened becomes the activated buffer.
 To open a new session and send code to the new buffer, it must be
 actived.  Switch to the desired buffer and type `C-c M-RET` to
 activate it.
+
+Displaying tables with many columns will wrap around the buffer -
+making the data hard to read.  You can use the `toggle-truncate-lines`
+function to prevent the wrapping.  You can then scroll left and right
+in the buffer to see all the columns.
 
 The following commands are available to interact with an inferior
 q[con] process/buffer. `C-c C-l` sends a single line, `C-c C-f`
@@ -59,9 +66,8 @@ the file associated with the active buffer.
 ## Customization
 
 `M-x customize-group` can be used to customize the `q` group.
-Specifically, the `inferior-q-program-name` and
-`inferior-qcon-program-name` variables can be changed depending on
-your environment.
+Specifically, the `q-program` and `q-qcon-program` variables can be
+changed depending on your environment.
 
 Q-mode indents each level based on `q-indent-step`.  To indent code
 based on {}-, ()-, and []-groups instead of equal width tabs, you
