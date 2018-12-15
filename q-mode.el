@@ -232,19 +232,17 @@
 
 (defun q-default-args ()
   "Build a list of default args out of the q-init customizable variables."
-  (let ((args ""))
-    (unless (equal q-init-file "") (setq args (format " %s" (shell-quote-argument q-init-file))))
-    (unless (equal q-init-port 0) (setq args (concat args (format " -p %s" q-init-port))))
-    (unless (equal q-init-slaves 0) (setq args (concat args (format " -s %s" q-init-slaves))))
-    (unless (equal q-init-workspace 0) (setq args (concat args (format " -w %s" q-init-workspace))))
-    (unless (not q-init-garbage-collect) (setq args (concat args " -g 1")))
-    args))
+  (concat 
+   (unless (equal q-init-file "") (format " %s" (shell-quote-argument q-init-file)))
+   (unless (equal q-init-port 0) (format " -p %s" q-init-port))
+   (unless (equal q-init-slaves 0) (format " -s %s" q-init-slaves))
+   (unless (equal q-init-workspace 0) (format " -w %s" q-init-workspace))
+   (unless (not q-init-garbage-collect) " -g 1")))
 
 (defun q-qcon-default-args ()
   "Build a list of default args out of the q-init customizable variables."
-  (let ((args (format "%s:%s" q-qcon-server q-qcon-port)))
-    (unless (equal q-qcon-user "") (setq args (concat args (format ":%s:%s" q-qcon-user q-qcon-password))))
-    args))
+  (concat (format "%s:%s" q-qcon-server q-qcon-port)
+          (unless (equal q-qcon-user "") (format ":%s:%s" q-qcon-user q-qcon-password))))
 
 (defun q-shell-name (server port)
   "Build name of q-shell based on SERVER and PORT."
