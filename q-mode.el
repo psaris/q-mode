@@ -68,7 +68,7 @@
 
 ;; Displaying tables with many columns will wrap around the buffer -
 ;; making the data hard to read.  You can use the
-;; `toggle-truncate-lines' function to prevent the wrapping. You can
+;; `toggle-truncate-lines' function to prevent the wrapping.  You can
 ;; then scroll left and right in the buffer to see all the columns.
 
 ;; The following commands are available to interact with an inferior
@@ -82,7 +82,7 @@
 ;; Specifically, the `q-program' and `q-qcon-program' variables can be
 ;; changed depending on your environment.
 
-;; Q-mode indents each level based on `q-indent-step`.  To indent code
+;; Q-mode indents each level based on `q-indent-step'.  To indent code
 ;; based on {}-, ()-, and []-groups instead of equal width tabs, you
 ;; can set this value to nil.
 
@@ -232,7 +232,7 @@
 
 (defun q-default-args ()
   "Build a list of default args out of the q-init customizable variables."
-  (concat 
+  (concat
    (unless (equal q-init-file "") (format " %s" (shell-quote-argument q-init-file)))
    (unless (equal q-init-port 0) (format " -p %s" q-init-port))
    (unless (equal q-init-slaves 0) (format " -s %s" q-init-slaves))
