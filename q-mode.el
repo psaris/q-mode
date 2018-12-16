@@ -637,7 +637,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   "Compute the indent for a line using tabs."
     (let ((n 0)
           pos)
-      (condition-case err
+      (condition-case nil
           (while (progn (setq pos (point))
                         (backward-up-list)
                         (/= (point) pos))
