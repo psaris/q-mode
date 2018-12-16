@@ -647,4 +647,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 
 (provide 'q-mode)
 
+;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.[kq]\\'" . q-mode))
+
 ;;; q-mode.el ends here
