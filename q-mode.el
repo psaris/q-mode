@@ -549,7 +549,6 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     (font-lock-syntactic-keywords . (("^\\(\/\\)\\s *$"     1 "< b") ; begin multiline comment /
                                      ("^\\(\\\\\\)\\s *$"   1 "> b") ; end multiline comment   \
                                      ("\\(?:^\\|[ \t]\\)\\(\/\\)"    1 "<  ") ; comments start flush left or after white space
-                                     ("\\(\"\\)\\(?:[^\"\\\\]\\|\\\\.\\)*?\\(\"\\)" (1 "\"") (2 "\""))
                                      )))
   "List of font lock keywords to properly highlight q syntax.")
 
@@ -558,7 +557,6 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 
 (defvar q-mode-syntax-table
   (let ((q-mode-syntax-table (make-syntax-table)))
-    (modify-syntax-entry ?\" ".  " q-mode-syntax-table) ; treat " as punctuation
     (modify-syntax-entry ?\/ ".  " q-mode-syntax-table) ; treat / as punctuation
     (modify-syntax-entry ?\n ">  " q-mode-syntax-table) ; comments are ended by a new line
     (modify-syntax-entry ?\r ">  " q-mode-syntax-table) ; comments are ended by a new line
@@ -588,6 +586,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (add-hook (make-local-variable 'comint-output-filter-functions) 'comint-strip-ctrl-m)
   (setq comint-prompt-regexp "^\\(q)+\\|[^:]*:[0-9]+>\\)")
   (setq font-lock-defaults q-font-lock-defaults)
+  (set (make-local-variable 'font-lock-multiline) t)
   (set (make-local-variable 'comint-process-echoes) nil)
   ;;  (set (make-local-variable 'comint-process-echoes) (not (equal q-host "")))
   (set (make-local-variable 'comint-password-prompt-regexp) "[Pp]assword")
@@ -603,6 +602,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   "Major mode for editing q language files"
   :group 'q
   (setq font-lock-defaults q-font-lock-defaults)
+  (set (make-local-variable 'font-lock-multiline) t)
   (set (make-local-variable 'comment-start) q-comment-start)
   (set (make-local-variable 'comment-start-skip) "\\(^\\|[ \t]\\)\\(/+[ \t]*\\)")
   (set (make-local-variable 'comment-end) "")
