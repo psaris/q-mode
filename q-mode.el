@@ -366,7 +366,8 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 (defun q-eval-region (start end)
   "Send the region between START and END to the inferior q[con] process."
   (interactive "r")
-  (q-send-string (q-strip (buffer-substring start end))))
+  (q-send-string (q-strip (buffer-substring start end)))
+  (setq deactivate-mark t))
 
 (defun q-eval-line ()
   "Send the current line to the inferior q[con] process."
