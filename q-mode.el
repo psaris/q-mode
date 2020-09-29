@@ -374,6 +374,19 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (interactive)
   (q-eval-region (point-at-bol) (point-at-eol)))
 
+(defun q-eval-line-and-advance ()
+  "Send the current line to the inferior q[con] process and advance the cursor to next line."
+  (interactive)
+  (q-eval-line)
+  (forward-line))
+
+(defun q-eval-symbol-at-point ()
+  "Evaluate what's assigned to the variable on which the cursor/point currently sits."
+  (interactive)
+  (require 'thingatpt)
+  (let ((symbol (thing-at-point 'symbol)))
+    (q-send-string symbol)))
+
 (defun q-eval-buffer ()
   "Load current buffer into the inferior q[con] process."
   (interactive)
@@ -415,6 +428,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 (defvar q-mode-map
   (let ((q-mode-map (make-sparse-keymap)))
     (define-key q-mode-map "\C-c\C-l"    'q-eval-line)
+    (define-key q-mode-map (kbd "<C-return>") 'q-eval-line-and-advance)
     (define-key q-mode-map "\C-c\C-f"    'q-eval-function)
     (define-key q-mode-map "\C-c\C-r"    'q-eval-region)
     (define-key q-mode-map "\C-c\C-b"    'q-eval-buffer)
