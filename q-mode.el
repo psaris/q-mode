@@ -220,6 +220,11 @@
 (defvar q-active-buffer nil
   "The name of the q-shell buffer to send q commands.")
 
+(defun q-switch-to-active-buffer ()
+  "Switch to `q-active-buffer'."
+  (interactive)
+  (pop-to-buffer q-active-buffer))
+
 (defun q-activate-this-buffer ()
   "Set the `q-activate-buffer' to the currently active buffer."
   (interactive)
@@ -369,16 +374,28 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (q-send-string (q-strip (buffer-substring start end)))
   (setq deactivate-mark t))
 
+(defun q-eval-region-and-go (start end)
+  "Send the region between START and END to the inferior q[con] process and go."
+  (interactive "r")
+  (q-eval-region start end)
+  (q-switch-to-active-buffer))
+
 (defun q-eval-line ()
   "Send the current line to the inferior q[con] process."
   (interactive)
   (q-eval-region (point-at-bol) (point-at-eol)))
 
-(defun q-eval-line-and-advance ()
-  "Send the current line to the inferior q[con] process and advance the cursor to next line."
+(defun q-eval-line-and-step ()
+  "Send the current line to the inferior q[con] process and step to the next line."
   (interactive)
   (q-eval-line)
   (forward-line))
+
+(defun q-eval-line-and-go ()
+  "Send the current line to the inferior q[con] process and go."
+  (interactive)
+  (q-eval-line)
+  (q-switch-to-active-buffer))
 
 (defun q-eval-symbol-at-point ()
   "Evaluate what's assigned to the variable on which the cursor/point currently sits."
@@ -409,6 +426,12 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
           (fun   (thing-at-point 'sexp))) ; find function body
       (q-send-string (q-strip (concat (buffer-substring start end) fun))))))
 
+(defun q-eval-function-and-go ()
+  "Send the current function to the inferior q[con] process and go."
+  (interactive)
+  (q-eval-function)
+  (q-switch-to-active-buffer))
+
 (defun q-load-file()
   "Load current buffer's file into the inferior q[con] process after saving."
   (interactive)
@@ -427,9 +450,13 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 (defvar q-mode-map
   (let ((q-mode-map (make-sparse-keymap)))
     (define-key q-mode-map "\C-c\C-l"    'q-eval-line)
-    (define-key q-mode-map (kbd "<C-return>") 'q-eval-line-and-advance)
+    (define-key q-mode-map "\C-c\C-j"    'q-eval-line)
+    (define-key q-mode-map "\C-c\M-j"    'q-eval-line-and-go)
+    (define-key q-mode-map (kbd "<C-return>") 'q-eval-line-and-step)
     (define-key q-mode-map "\C-c\C-f"    'q-eval-function)
+    (define-key q-mode-map "\C-c\M-f"    'q-eval-function-and-go)
     (define-key q-mode-map "\C-c\C-r"    'q-eval-region)
+    (define-key q-mode-map "\C-c\M-r"    'q-eval-region-and-go)
     (define-key q-mode-map "\C-c\C-b"    'q-eval-buffer)
     (define-key q-mode-map "\C-c\M-l"    'q-load-file)
     (define-key q-mode-map (kbd "C-c M-RET") 'q-activate-buffer)
@@ -439,16 +466,20 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     (define-key q-mode-map "\C-c\C-c"   'comment-region)
     q-mode-map)
   "Keymap for q major mode.")
-
+(require 'ess)
 ;; menu bars
 (easy-menu-define q-menu q-mode-map
   "Menubar for q script commands"
   '("Q"
-    ["Eval Line"      q-eval-line t]
-    ["Eval Function"  q-eval-function t]
-    ["Eval Region"    q-eval-region t]
-    ["Eval Buffer"    q-eval-buffer t]
-    ["Load File"      q-load-file t]
+    ["Eval Line"             q-eval-line t]
+    ["Eval Line and Step"    q-eval-line-and-step t]
+    ["Eval Line and Go"      q-eval-line-and-go t]
+    ["Eval Function"         q-eval-function t]
+    ["Eval Function and Go"  q-eval-function-and-go t]
+    ["Eval Region"           q-eval-region t]
+    ["Eval Region and Go"    q-eval-region-and-go t]
+    ["Eval Buffer"           q-eval-buffer t]
+    ["Load File"             q-load-file t]
     "---"
     ["Comment Region" comment-region t]
     "---"
