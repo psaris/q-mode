@@ -383,7 +383,6 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 (defun q-eval-symbol-at-point ()
   "Evaluate what's assigned to the variable on which the cursor/point currently sits."
   (interactive)
-  (require 'thingatpt)
   (let ((symbol (thing-at-point 'symbol)))
     (q-send-string symbol)))
 
