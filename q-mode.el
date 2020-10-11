@@ -466,7 +466,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     (define-key q-mode-map "\C-c\C-c"   'comment-region)
     q-mode-map)
   "Keymap for q major mode.")
-(require 'ess)
+
 ;; menu bars
 (easy-menu-define q-menu q-mode-map
   "Menubar for q script commands"
