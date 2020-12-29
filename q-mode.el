@@ -74,9 +74,13 @@
 ;; The following commands are available to interact with an inferior
 ;; q[con] process/buffer.  `C-c C-l' sends a single line, `C-c C-f'
 ;; sends the surrounding function, `C-c C-r' sends the selected region
-;; and `C-c C-b' sends the whole buffer.  If the source file exists on
-;; the same machine as the q process, `C-c M-l' can be used to load
-;; the file associated with the active buffer.
+;; and `C-c C-b' sends the whole buffer. If prefixed with `C-u C-u',
+;; or pressing `C-c M-j' `C-c M-f' `C-c M-r' respectively, will also
+;; switch point to the active q process buffer for direct interaction.
+
+;; If the source file exists on the same machine as the q process,
+;; `C-c M-l' can be used to load the file associated with the active
+;; buffer.
 
 ;; `M-x customize-group' can be used to customize the `q' group.
 ;; Specifically, the `q-program' and `q-qcon-program' variables can be
@@ -220,11 +224,6 @@
 (defvar q-active-buffer nil
   "The name of the q-shell buffer to send q commands.")
 
-(defun q-switch-to-active-buffer ()
-  "Switch to `q-active-buffer'."
-  (interactive)
-  (pop-to-buffer q-active-buffer))
-
 (defun q-activate-this-buffer ()
   "Set the `q-activate-buffer' to the currently active buffer."
   (interactive)
@@ -263,7 +262,6 @@ started on a remoate machine.  The optional ARGS argument
 qspecifies the command line args to use when executing q; the
 default ARGS are obtained from the q-init customization
 variables.
-
 In interactive use, a prefix argument directs this command
 to read the command line arguments from the minibuffer."
   (interactive (let* ((args (q-default-args))
@@ -303,7 +301,6 @@ to read the command line arguments from the minibuffer."
 Optional argument ARGS specifies the command line args to use
 when executing qcon; the default ARGS are obtained from the
 `q-host' and `q-init-port' customization variables.
-
 In interactive use, a prefix argument directs this command
 to read the command line arguments from the minibuffer."
   (interactive (let* ((args (q-qcon-default-args)))
@@ -366,19 +363,14 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
       (with-current-buffer (get-buffer q-active-buffer)
         (goto-char (point-max))
         (insert-before-markers (concat msg "\n")))
-      (comint-simple-send (get-buffer-process q-active-buffer) msg))))
+      (comint-simple-send (get-buffer-process q-active-buffer) msg)))
+  (if (equal current-prefix-arg '(16)) (q-show-q-buffer)))
 
 (defun q-eval-region (start end)
   "Send the region between START and END to the inferior q[con] process."
   (interactive "r")
   (q-send-string (q-strip (buffer-substring start end)))
   (setq deactivate-mark t))
-
-(defun q-eval-region-and-go (start end)
-  "Send the region between START and END to the inferior q[con] process and go."
-  (interactive "r")
-  (q-eval-region start end)
-  (q-switch-to-active-buffer))
 
 (defun q-eval-line ()
   "Send the current line to the inferior q[con] process."
@@ -390,12 +382,6 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (interactive)
   (q-eval-line)
   (forward-line))
-
-(defun q-eval-line-and-go ()
-  "Send the current line to the inferior q[con] process and go."
-  (interactive)
-  (q-eval-line)
-  (q-switch-to-active-buffer))
 
 (defun q-eval-symbol-at-point ()
   "Evaluate what's assigned to the variable on which the cursor/point currently sits."
@@ -426,11 +412,10 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
           (fun   (thing-at-point 'sexp))) ; find function body
       (q-send-string (q-strip (concat (buffer-substring start end) fun))))))
 
-(defun q-eval-function-and-go ()
-  "Send the current function to the inferior q[con] process and go."
-  (interactive)
-  (q-eval-function)
-  (q-switch-to-active-buffer))
+(defun q-and-go (fun) (let ((current-prefix-arg '(16))) (call-interactively fun)))
+(defun q-eval-line-and-go () (interactive) (q-and-go 'q-eval-line))
+(defun q-eval-function-and-go () (interactive) (q-and-go 'q-eval-function))
+(defun q-eval-region-and-go () (interactive) (q-and-go 'q-eval-region))
 
 (defun q-load-file()
   "Load current buffer's file into the inferior q[con] process after saving."
