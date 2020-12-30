@@ -409,11 +409,11 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (q-eval-region (point-min) (point-max)))
 
 (defvar q-function-regex
-  "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\)*\\s *\\):\\s *{"
+  "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\|_\\)*\\s *\\):\\s *{"
   "Regular expression used to find function declarations.")
 
 (defvar q-variable-regex
-  "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\)*\\s *\\)[-.~=!@#$%^&*_+|,<>?]?::?"
+    "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\|_\\)*\\s *\\)[-.~=!@#$%^&*_+|,<>?]?::?"
   "Regular expression used to find variable declarations.")
 
 (defun q-eval-function ()
@@ -562,7 +562,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
            '("\\(`\\_<[gpsu]\\)#" 1 font-lock-type-face nil) ; attributes
            '("^'.*?$" 0 font-lock-warning-face nil)   ; error
            '("[; ]\\('`\\w*\\)" 1 font-lock-warning-face nil) ; signal
-           '("`\\(?:\\(?:\\w\\|[.]\\)\\(?:\\w\\|\\s_\\)*\\)?" . font-lock-constant-face) ; symbols
+           '("`\\(?:\\(?:\\w\\|[.]\\)\\(?:\\s_\\|\\w\\|_\\)*\\)?" . font-lock-constant-face) ; symbols
            '("\\b[0-2]:" . font-lock-preprocessor-face) ; IO/IPC
            (list q-type-words 1 font-lock-type-face nil) ; `minute`year
            (cons q-keywords  'font-lock-keyword-face)   ; select from
@@ -608,6 +608,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     (modify-syntax-entry ?\n ">  " q-mode-syntax-table) ; comments are ended by a new line
     (modify-syntax-entry ?\r ">  " q-mode-syntax-table) ; comments are ended by a new line
     (modify-syntax-entry ?\. "_  " q-mode-syntax-table) ; treat . as a symbol
+    (modify-syntax-entry ?\_ ".  " q-mode-syntax-table) ; treat _ as punctuation
     (modify-syntax-entry ?\\ ".  " q-mode-syntax-table) ; treat \ as punctuation
     (modify-syntax-entry ?\$ ".  " q-mode-syntax-table) ; treat $ as punctuation
     (modify-syntax-entry ?\% ".  " q-mode-syntax-table) ; treat % as punctuation
@@ -620,7 +621,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     (modify-syntax-entry ?\< ".  " q-mode-syntax-table) ; treat < as punctuation
     (modify-syntax-entry ?\> ".  " q-mode-syntax-table) ; treat > as punctuation
     (modify-syntax-entry ?\| ".  " q-mode-syntax-table) ; treat | as punctuation
-    (modify-syntax-entry ?\` "'  " q-mode-syntax-table) ; treat ` as expression prefix
+    (modify-syntax-entry ?\` "_  " q-mode-syntax-table) ; treat ` as symbol
     q-mode-syntax-table)
   "Syntax table for `q-mode'.")
 
