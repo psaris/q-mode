@@ -1,4 +1,4 @@
-# q-mode
+# q-mode [![MELPA](https://melpa.org/packages/q-mode-badge.svg)](https://melpa.org/#/q-mode)
 
 ## Features
 
