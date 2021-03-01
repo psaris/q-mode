@@ -232,6 +232,7 @@
 (defun q-activate-buffer (buffer)
   "Set the `q-active-buffer' to the supplied BUFFER."
   (interactive "bactivate buffer: ")
+  (when (called-interactively-p 'any) (display-buffer buffer))
   (setq q-active-buffer buffer))
 
 (defun q-default-args ()
