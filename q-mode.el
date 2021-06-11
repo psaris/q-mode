@@ -494,7 +494,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (eval-when-compile
     (regexp-opt
      '("abs" "acos" "asin" "atan" "avg" "bin" "binr" "by" "cor" "cos" "cov" "dev" "delete"
-       "div" "do" "exec" "exit" "exp" "from" "getenv" "if" "in" "insert" "last"
+       "div" "do" "enlist" "exec" "exit" "exp" "from" "getenv" "hopen" "if" "in" "insert" "last"
        "like" "log" "max" "min" "prd" "select" "setenv" "sin" "sqrt" "ss"
        "sum" "tan" "update" "var" "wavg" "while" "within" "wsum" "xexp") `words))
   "Keywords for q mode.")
@@ -511,11 +511,11 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (eval-when-compile
     (concat "\\_<\\(?:[.]q[.]\\)?"
             (regexp-opt
-             '( "aj" "aj0" "all" "and" "any" "asc" "asof" "attr" "avgs" "ceiling"
+             '( "aj" "aj0" "ajf" "ajf0" "all" "and" "any" "asc" "asof" "attr" "avgs" "ceiling"
                 "cols" "count" "cross" "csv" "cut" "deltas" "desc"
-                "differ" "distinct" "dsave" "each" "ej" "ema" "enlist" "eval" "except" "fby" "fills"
+                "differ" "distinct" "dsave" "each" "ej" "ema" "eval" "except" "fby" "fills"
                 "first" "fkeys" "flip" "floor" "get" "group" "gtime" "hclose" "hcount"
-                "hdel" "hopen" "hsym" "iasc" "idesc" "ij" "ijf" "inter" "inv" "key" "keys"
+                "hdel" "hsym" "iasc" "idesc" "ij" "ijf" "inter" "inv" "key" "keys"
                 "lj" "ljf" "load" "lower" "lsq" "ltime" "ltrim" "mavg" "maxs" "mcount" "md5"
                 "mdev" "med" "meta" "mins" "mmax" "mmin" "mmu" "mod" "msum" "neg"
                 "next" "not" "null" "or" "over" "parse" "peach" "pj" "prds" "prior"
