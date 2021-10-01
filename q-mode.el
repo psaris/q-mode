@@ -132,7 +132,8 @@
   :group 'q)
 
 (defcustom q-indent-step 1
-  "If nil, alligns code to {}-, ()-, and []-groups.  Otherwise, each level indents by this amount."
+  "If nil, alligns code to {}-, ()-, and []-groups.  Otherwise,
+each level indents by this amount."
   :type '(choice (const nil) integer)
   :group 'q)
 
