@@ -623,7 +623,6 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (set (make-local-variable 'comint-process-echoes) nil)
   ;;  (set (make-local-variable 'comint-process-echoes) (not (equal q-host "")))
   (set (make-local-variable 'comint-password-prompt-regexp) "[Pp]assword")
-  (easy-menu-add q-shell-menu)
   )
 
 (defvar q-imenu-generic-expression
@@ -639,7 +638,6 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (set (make-local-variable 'comment-start-skip) "\\(^\\|[ \t]\\)\\(/+[ \t]*\\)")
   (set (make-local-variable 'comment-end) "")
   (set (make-local-variable 'indent-line-function) 'q-indent-line)
-  (easy-menu-add q-menu)
   ;; enable imenu
   (set (make-local-variable 'imenu-generic-expression) q-imenu-generic-expression)
   )
