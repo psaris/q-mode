@@ -409,7 +409,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (interactive)
   (save-excursion
     (goto-char (point-at-eol))          ; go to end of line
-    (let ((start (re-search-backward q-function-regex)) ; find beinning of function
+    (let ((start (re-search-backward (concat "^" q-function-regex))) ; find beinning of function
           (end   (re-search-forward ":")) ; find end of function name
           (fun   (thing-at-point 'sexp))) ; find function body
       (q-send-string (q-strip (concat (buffer-substring start end) fun))))))
