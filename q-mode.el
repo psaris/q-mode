@@ -589,27 +589,27 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 ;; syntax table
 
 (defvar q-mode-syntax-table
-  (let ((q-mode-syntax-table (make-syntax-table)))
-    (modify-syntax-entry ?\" ".  " q-mode-syntax-table) ; treat " as punctuation
-    (modify-syntax-entry ?\/ ".  " q-mode-syntax-table) ; treat / as punctuation
-    (modify-syntax-entry ?\n ">  " q-mode-syntax-table) ; comments are ended by a new line
-    (modify-syntax-entry ?\r ">  " q-mode-syntax-table) ; comments are ended by a new line
-    (modify-syntax-entry ?\. "_  " q-mode-syntax-table) ; treat . as a symbol
-    (modify-syntax-entry ?\_ ".  " q-mode-syntax-table) ; treat _ as punctuation
-    (modify-syntax-entry ?\\ ".  " q-mode-syntax-table) ; treat \ as punctuation
-    (modify-syntax-entry ?\$ ".  " q-mode-syntax-table) ; treat $ as punctuation
-    (modify-syntax-entry ?\% ".  " q-mode-syntax-table) ; treat % as punctuation
-    (modify-syntax-entry ?\& ".  " q-mode-syntax-table) ; treat & as punctuation
-    (modify-syntax-entry ?\+ ".  " q-mode-syntax-table) ; treat + as punctuation
-    (modify-syntax-entry ?\, ".  " q-mode-syntax-table) ; treat , as punctuation
-    (modify-syntax-entry ?\- ".  " q-mode-syntax-table) ; treat - as punctuation
-    (modify-syntax-entry ?\= ".  " q-mode-syntax-table) ; treat < as punctuation
-    (modify-syntax-entry ?\* ".  " q-mode-syntax-table) ; treat * as punctuation
-    (modify-syntax-entry ?\< ".  " q-mode-syntax-table) ; treat < as punctuation
-    (modify-syntax-entry ?\> ".  " q-mode-syntax-table) ; treat > as punctuation
-    (modify-syntax-entry ?\| ".  " q-mode-syntax-table) ; treat | as punctuation
-    (modify-syntax-entry ?\` "_  " q-mode-syntax-table) ; treat ` as symbol
-    q-mode-syntax-table)
+  (let ((table (make-syntax-table)))
+    (modify-syntax-entry ?\" ".  " table) ; treat " as punctuation
+    (modify-syntax-entry ?\/ ".  " table) ; treat / as punctuation
+    (modify-syntax-entry ?\n ">  " table) ; comments are ended by a new line
+    (modify-syntax-entry ?\r ">  " table) ; comments are ended by a new line
+    (modify-syntax-entry ?\. "_  " table) ; treat . as a symbol
+    (modify-syntax-entry ?\_ ".  " table) ; treat _ as punctuation
+    (modify-syntax-entry ?\\ ".  " table) ; treat \ as punctuation
+    (modify-syntax-entry ?\$ ".  " table) ; treat $ as punctuation
+    (modify-syntax-entry ?\% ".  " table) ; treat % as punctuation
+    (modify-syntax-entry ?\& ".  " table) ; treat & as punctuation
+    (modify-syntax-entry ?\+ ".  " table) ; treat + as punctuation
+    (modify-syntax-entry ?\, ".  " table) ; treat , as punctuation
+    (modify-syntax-entry ?\- ".  " table) ; treat - as punctuation
+    (modify-syntax-entry ?\= ".  " table) ; treat < as punctuation
+    (modify-syntax-entry ?\* ".  " table) ; treat * as punctuation
+    (modify-syntax-entry ?\< ".  " table) ; treat < as punctuation
+    (modify-syntax-entry ?\> ".  " table) ; treat > as punctuation
+    (modify-syntax-entry ?\| ".  " table) ; treat | as punctuation
+    (modify-syntax-entry ?\` "_  " table) ; treat ` as symbol
+    table)
   "Syntax table for `q-mode'.")
 
 ;; modes
