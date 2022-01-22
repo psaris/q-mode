@@ -397,11 +397,11 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (q-eval-region (point-min) (point-max)))
 
 (defvar q-function-regex
-  "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\|_\\)*\\s *\\):\\s *\\(?:{\\|'\\s *\\[\\|.*::\\)"
+  "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\|_\\)*\\s-*\\):\\s-*\\(?:{\\|'\\s-*\\[\\|.*::\\)"
   "Regular expression used to find function declarations.")
 
 (defvar q-variable-regex
-    "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\|_\\)*\\s *\\)[-.~=!@#$%^&*_+|,<>?]?::?"
+    "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\|_\\)*\\s-*\\)[-.~=!@#$%^&*_+|,<>?]?::?"
   "Regular expression used to find variable declarations.")
 
 (defun q-eval-function ()
@@ -505,7 +505,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     (concat "\\(`"
             (regexp-opt '("boolean" "byte" "short" "long" "real" "int" "float" "char" "symbol"
                           "month" "date" "datetime" "minute" "second" "time" "timespan" "timestamp"
-                          "year" "mm" "dd" "hh" "uu" "ss" "week") t) "\\)\\s *[$]"))
+                          "year" "mm" "dd" "hh" "uu" "ss" "week") t) "\\)\\s-*[$]"))
   "Types for q mode.")
 
 (defvar q-builtin-words
@@ -578,8 +578,8 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 (defvar q-font-lock-defaults
   '((q-font-lock-keywords q-font-lock-keywords-1 q-font-lock-keywords-2)
     nil nil nil nil
-    (font-lock-syntactic-keywords . (("^\\(\/\\)\\s *$"     1 "< b") ; begin multiline comment /
-                                     ("^\\(\\\\\\)\\s *$"   1 "> b") ; end multiline comment   \
+    (font-lock-syntactic-keywords . (("^\\(\/\\)\\s-*$"     1 "< b") ; begin multiline comment /
+                                     ("^\\(\\\\\\)\\s-*$"   1 "> b") ; end multiline comment   \
                                      ("\\(?:^\\|[ \t]\\)\\(\/\\)"    1 "<  ") ; comments start flush left or after white space
                                      ("\\(\"\\)\\(?:[^\"\\\\]\\|\\\\.\\)*?\\(\"\\)" (1 "\"") (2 "\""))
                                      )))
