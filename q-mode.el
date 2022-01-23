@@ -397,7 +397,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (q-eval-region (point-min) (point-max)))
 
 (defvar q-function-regex
-  "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\|_\\)*\\s-*\\)::?\\s-*\\(?:{\\|'\\s-*\\[\\|[^;{\n:/]*\\(?:::\\|[!#-'*-/<-@\\^_|~]:?\\)\\s-*\\(?:\\s<\\|$\\|;\\)\\)"
+  "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\|_\\)*\\s-*\\)::?\\s-*\\(?:{\\|'\\s-*\\[\\|[^;{\n]*?\\(?:::\\|[-.~=!@#$%^&*_+|,<>?/\\:']\\)\\s-*\\(?:\\s<\\|$\\|;\\)\\)"
   "Regular expression used to find function declarations.")
 
 (defvar q-variable-regex
