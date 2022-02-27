@@ -355,7 +355,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (setq text (replace-regexp-in-string "^\\(?:[^\\\\].*\\)?[ \t]\\(/.*\\)" "" text t t 1)) ; / comments
   (setq text (replace-regexp-in-string "^/.+$" "" text t t)) ; / comments
   (setq text (replace-regexp-in-string "[ \t\n]+$" "" text t t)) ; excess white space
-  (setq text (replace-regexp-in-string "\n[ \t]+" " " text t t)) ; fold functions
+  (setq text (replace-regexp-in-string "\n[ \t]+" "" text t t)) ; fold functions
   text)
 
 (defun q-send-string (string)
