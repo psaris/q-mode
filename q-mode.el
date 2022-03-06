@@ -523,7 +523,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
                 "prev" "rand" "rank" "ratios" "raze" "read0" "read1" "reciprocal" "reval"
                 "reverse" "rload" "rotate" "rsave" "rtrim" "save" "scan" "scov" "sdev" "set" "show"
                 "signum" "ssr" "string" "sublist" "sums" "sv" "svar" "system" "tables" "til"
-                "trim" "txf" "type" "uj" "ujf" "ungroup" "union" "upper" "upsert" "value"
+                "trim" "type" "uj" "ujf" "ungroup" "union" "upper" "upsert" "value"
                 "view" "views" "vs" "where" "wj" "wj1" "ww" "xasc" "xbar" "xcol" "xcols" "xdesc"
                 "xgroup" "xkey" "xlog" "xprev" "xrank")) "\\_>"))
   "Builtin functions defined in q.k.")
