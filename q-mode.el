@@ -562,10 +562,10 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
           (list
            (cons q-constant-words 'font-lock-constant-face) ; .z.*
            (list q-variable-regex 1 font-lock-variable-name-face nil) ; variables
-           '("\\_<[0-9][0-9][0-9][0-9]\\.[0-9][0-9]\\(?:m\\|\\.[0-9][0-9]\\(?:T\\(?:[0-9][0-9]\\(?:[:][0-9][0-9]\\(?:[:][0-9][0-9]\\(?:\\.[0-9]*\\)?\\)?\\)?\\)?\\)?\\)\\_>" . font-lock-constant-face) ; month/date/datetime
-           '("\\_<\\(?:[0-9][0-9][0-9][0-9]\\.[0-9][0-9]\\.[0-9][0-9]\\|[0-9]+\\)D\\(?:[0-9]\\(?:[0-9]\\(?:[:][0-9][0-9]\\(?:[:][0-9][0-9]\\(?:\\.[0-9]*\\)?\\)?\\)?\\)?\\)?\\_>" . font-lock-constant-face) ; timespan/timestamp
+           '("\\_<[0-9]\\{4\\}\\.[0-9]\\{2\\}\\(?:m\\|\\.[0-9]\\{2\\}\\(?:T\\(?:[0-9]\\{2\\}\\(?::[0-9]\\{2\\}\\(?::[0-9]\\{2\\}\\(?:\\.[0-9]*\\)?\\)?\\)?\\)?\\)?\\)\\_>" . font-lock-constant-face) ; month/date/datetime
+           '("\\_<\\(?:[0-9]\\{4\\}\\.[0-9]\\{2\\}\\.[0-9]\\{2\\}\\|[0-9]+\\)D\\(?:[0-9]\\(?:[0-9]\\(?::[0-9]\\{2\\}\\(?::[0-9]\\{2\\}\\(?:\\.[0-9]*\\)?\\)?\\)?\\)?\\)?\\_>" . font-lock-constant-face) ; timespan/timestamp
            '("\\_<[0-9a-f]\\{8\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{12\\}\\_>" . font-lock-constant-face) ; guid
-           '("\\_<[0-9][0-9]:[0-9][0-9]\\(?:[:][0-9][0-9]\\(?:\\.[0-9]\\|\\.[0-9][0-9]\\|\\.[0-9][0-9][0-9]\\)?\\)?\\_>" . font-lock-constant-face) ; time
+           '("\\_<[0-9]\\{2\\}:[0-9]\\{2\\}\\(?::[0-9]\\{2\\}\\(?:\\.[0-9]\\|\\.[0-9]\\{2\\}\\|\\.[0-9]\\{3\\}\\)?\\)?\\_>" . font-lock-constant-face) ; time
            '("\\<[0-9]*[0-9.][0-9]*\\(?:[eE][+-]?[0-9]+\\)?[ef]?\\>" . font-lock-constant-face) ; floats/reals
            '("\\_<[0-9]+[cefhijnptuv]?\\_>" . font-lock-constant-face) ; char/real/float/short/int/long/time-types
            '("\\_<[01]+b\\_>" . font-lock-constant-face) ; bool
