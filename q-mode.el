@@ -74,7 +74,7 @@
 ;; The following commands are available to interact with an inferior
 ;; q[con] process/buffer.  `C-c C-l' sends a single line, `C-c C-f'
 ;; sends the surrounding function, `C-c C-r' sends the selected region
-;; and `C-c C-b' sends the whole buffer. If prefixed with `C-u C-u',
+;; and `C-c C-b' sends the whole buffer.  If prefixed with `C-u C-u',
 ;; or pressing `C-c M-j' `C-c M-f' `C-c M-r' respectively, will also
 ;; switch point to the active q process buffer for direct interaction.
 
@@ -112,7 +112,7 @@
 
 ;;; Code:
 
-(defgroup q nil "Major mode for editing q code" :group 'languages)
+(defgroup q nil "Major mode for editing q code." :group 'languages)
 
 (defcustom q-program "q"
   "Program name for invoking an inferior q."
@@ -132,8 +132,9 @@
   :group 'q)
 
 (defcustom q-indent-step 1
-  "If nil, alligns code to {}-, ()-, and []-groups.  Otherwise,
-each level indents by this amount."
+  "Length of indent used by `q-indent-line`.
+If nil, code is aligned to {}-, ()-, and []-groups.  Otherwise,
+each level is indented by this amount."
   :type '(choice (const nil) integer)
   :group 'q)
 
@@ -155,7 +156,7 @@ each level indents by this amount."
   :type 'string
   :group 'q)
 
-(defgroup q-init nil "Q initialization variables" :group 'q)
+(defgroup q-init nil "Q initialization variables." :group 'q)
 
 (defcustom q-init-port 0
   "If non-zero, Q-Shell will start with the specified server port."
@@ -186,7 +187,7 @@ each level indents by this amount."
   :type 'file
   :group 'q-init)
 
-(defgroup q-qcon nil "Q qcon arguments" :group 'q)
+(defgroup q-qcon nil "Q qcon arguments." :group 'q)
 
 (defcustom q-qcon-program "qcon"
   "Program name for invoking an inferior qcon."
@@ -261,11 +262,10 @@ each level indents by this amount."
   "Start a new q process.
 The optional argument HOST and USER allow the q process to be
 started on a remoate machine.  The optional ARGS argument
-qspecifies the command line args to use when executing q; the
+specifies the command line args to use when executing q; the
 default ARGS are obtained from the q-init customization
-variables.
-In interactive use, a prefix argument directs this command
-to read the command line arguments from the minibuffer."
+variables.  In interactive use, a prefix argument directs this
+command to read the command line arguments from the minibuffer."
   (interactive (let* ((args (q-default-args))
                       (user  q-user)
                       (host  q-host))
@@ -386,7 +386,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (forward-line))
 
 (defun q-eval-symbol-at-point ()
-  "Evaluate what's assigned to the variable on which the cursor/point currently sits."
+  "Evaluate current symbol."
   (interactive)
   (let ((symbol (thing-at-point 'symbol)))
     (q-send-string symbol)))
@@ -414,10 +414,23 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
           (fun   (thing-at-point 'sexp))) ; find function body
       (q-send-string (q-strip (concat (buffer-substring start end) fun))))))
 
-(defun q-and-go (fun) (let ((current-prefix-arg '(16))) (call-interactively fun)))
-(defun q-eval-line-and-go () (interactive) (q-and-go 'q-eval-line))
-(defun q-eval-function-and-go () (interactive) (q-and-go 'q-eval-function))
-(defun q-eval-region-and-go () (interactive) (q-and-go 'q-eval-region))
+(defun q-and-go (fun)
+  "Call FUN interactively and show active q buffer."
+  (let ((current-prefix-arg '(16))) (call-interactively fun)))
+
+(defun q-eval-line-and-go ()
+  "Send the current line to the inferior q[con] process and show active q buffer."
+  (interactive)
+  (q-and-go 'q-eval-line))
+
+(defun q-eval-function-and-go ()
+  "Send the function to the inferior q[con] process and show active q buffer."
+  (interactive) (q-and-go 'q-eval-function))
+
+(defun q-eval-region-and-go ()
+  "Send the active region to the inferior q[con] process and show active q buffer."
+  (interactive)
+  (q-and-go 'q-eval-region))
 
 (defun q-load-file()
   "Load current buffer's file into the inferior q[con] process after saving."
@@ -456,7 +469,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 
 ;; menu bars
 (easy-menu-define q-menu q-mode-map
-  "Menubar for q script commands"
+  "Menubar for q script commands."
   '("Q"
     ["Eval Line"             q-eval-line t]
     ["Eval Line and Step"    q-eval-line-and-step t]
@@ -476,7 +489,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     ))
 
 (easy-menu-define q-shell-menu q-shell-mode-map
-  "Menubar for q shell commands"
+  "Menubar for q shell commands."
   '("Q-Shell"
     ["Activate Buffer" q-activate-this-buffer t]
     ))
@@ -616,7 +629,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 
 ;;;###autoload
 (define-derived-mode q-shell-mode comint-mode "Q-Shell"
-  "Major mode for interacting with a q interpreter"
+  "Major mode for interacting with a q interpreter."
   :syntax-table q-mode-syntax-table
   (add-hook (make-local-variable 'comint-output-filter-functions) 'comint-strip-ctrl-m)
   (setq comint-prompt-regexp "^\\(q)+\\|[^:]*:[0-9]+>\\)")
@@ -634,7 +647,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 
 ;;;###autoload
 (define-derived-mode q-mode prog-mode "Q-Script"
-  "Major mode for editing q language files"
+  "Major mode for editing q language files."
   :group 'q
   (setq font-lock-defaults q-font-lock-defaults)
   (set (make-local-variable 'comment-start) q-comment-start)
