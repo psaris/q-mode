@@ -275,9 +275,9 @@ command to read the command line arguments from the minibuffer."
                            (read-string "Q command line args: " args))
                    (list host user args))))
 
-  (unless (or (equal user "") (null user)) (setq host (format "%s@%s" user host)))
-  (let* ((args (if (null args) "" args))
-         (host (if (null host) "" host))
+  (unless (equal (or user "") "") (setq host (format "%s@%s" user host)))
+  (let* ((args (or args ""))
+         (host (or host ""))
          (cmd q-program)
          (cmd (if (equal args "") cmd (concat cmd args)))
          (qs (not (equal host "")))
