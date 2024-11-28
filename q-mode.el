@@ -261,7 +261,7 @@ each level is indented by this amount."
 (defun q (&optional host user args)
   "Start a new q process.
 The optional argument HOST and USER allow the q process to be
-started on a remoate machine.  The optional ARGS argument
+started on a remote machine.  The optional ARGS argument
 specifies the command line args to use when executing q; the
 default ARGS are obtained from the q-init customization
 variables.  In interactive use, a prefix argument directs this
@@ -275,8 +275,10 @@ command to read the command line arguments from the minibuffer."
                            (read-string "Q command line args: " args))
                    (list host user args))))
 
-  (unless (equal user "") (setq host (format "%s@%s" user host)))
+  (unless (equal (or user "") "") (setq host (format "%s@%s" user host)))
   (let* ((cmd q-program)
+         (args (or args ""))
+         (host (or host ""))
          (cmd (if (equal args "") cmd (concat cmd args)))
          (qs (not (equal host "")))
          (port (if (with-temp-buffer (setq case-fold-search nil)(string-match "-p *\\([0-9]+\\)" args)) (match-string 1 args) ""))
