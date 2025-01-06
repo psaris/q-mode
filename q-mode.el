@@ -666,15 +666,20 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 
 (defun q-indent-line ()
   "Indent current line as q."
-  (let ((indent (condition-case nil
-                    (save-excursion
-                      (forward-line 0)
-                      (or (if (null q-indent-step)
-                              (q-compute-indent-sexp)
-                            (* q-indent-step (q-compute-indent-tab)))
-                          0))
-                  (error 0))))
-    (indent-line-to indent)))
+  (let* ((savep (point))
+         (indent (condition-case nil
+                     (save-excursion
+                       (forward-line 0)
+                       (skip-chars-forward " \t")
+                       (if (>= (point) savep) (setq savep nil))
+                       (or (if (null q-indent-step)
+                               (q-compute-indent-sexp)
+                             (* q-indent-step (q-compute-indent-tab)))
+                           0))
+                   (error 0))))
+    (if savep
+        (save-excursion (indent-line-to indent))
+      (indent-line-to indent))))
 
 (defun q-compute-indent-sexp ()
   "Compute the indent for a line using sexp."
