@@ -547,11 +547,10 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 
 (defvar q-constant-words
   (eval-when-compile
-    (format "%s\\>"
-            (regexp-opt '(".z.D" ".z.K" ".z.T" ".z.Z" ".z.N" ".z.P" ".z.a" ".z.b" ".z.d" ".z.exit" ".z.f"
-                          ".z.h" ".z.i" ".z.k" ".z.l" ".z.o" ".z.pc" ".z.pg" ".z.ph" ".z.pi"
-                          ".z.po" ".z.pp" ".z.ps" ".z.pw" ".z.s" ".z.t" ".z.ts" ".z.u" ".z.vs"
-                          ".z.w" ".z.x" ".z.z" ".z.n" ".z.p" ".z.ws" ".z.bm") t)))
+    (regexp-opt '(".z.D" ".z.K" ".z.T" ".z.Z" ".z.N" ".z.P" ".z.a" ".z.b" ".z.d" ".z.exit" ".z.f"
+                  ".z.h" ".z.i" ".z.k" ".z.l" ".z.o" ".z.pc" ".z.pg" ".z.ph" ".z.pi"
+                  ".z.po" ".z.pp" ".z.ps" ".z.pw" ".z.s" ".z.t" ".z.ts" ".z.u" ".z.vs"
+                  ".z.w" ".z.x" ".z.z" ".z.n" ".z.p" ".z.ws" ".z.bm") `symbols))
   "Constants for q mode.")
 
 (defvar q-font-lock-keywords
