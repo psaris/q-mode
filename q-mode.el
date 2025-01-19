@@ -127,7 +127,7 @@
   :group 'q)
 
 (defcustom q-user ""
-  "User to use when 'ssh'-ing to the remote host."
+  "User to use when `ssh'-ing to the remote host."
   :safe 'stringp
   :type 'string
   :group 'q)
@@ -220,7 +220,7 @@ each level is indented by this amount."
   :group 'q-qcon)
 
 (defun q-customize ()
-  "Customize 'q-mode'."
+  "Customize `q-mode'."
   (interactive)
   (customize-group "q"))
 
@@ -380,7 +380,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 (defun q-eval-line ()
   "Send the current line to the inferior q[con] process."
   (interactive)
-  (q-eval-region (point-at-bol) (point-at-eol)))
+  (q-eval-region (line-beginning-position) (line-end-position)))
 
 (defun q-eval-line-and-step ()
   "Send the current line to the inferior q[con] process and step to the next line."
@@ -411,7 +411,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   "Send the current function to the inferior q[con] process."
   (interactive)
   (save-excursion
-    (goto-char (point-at-eol))          ; go to end of line
+    (goto-char (line-end-position))          ; go to end of line
     (let ((start (re-search-backward (concat "^" q-function-regex))) ; find beinning of function
           (end   (re-search-forward ":")) ; find end of function name
           (fun   (thing-at-point 'sexp))) ; find function body
