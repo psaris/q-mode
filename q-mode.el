@@ -225,7 +225,7 @@ each level is indented by this amount."
   (customize-group "q"))
 
 (defvar q-active-buffer nil
-  "The name of the q-shell buffer to send q commands.")
+  "The q-shell buffer to send q commands.")
 
 (defun q-activate-this-buffer ()
   "Set the `q-activate-buffer' to the currently active buffer."
@@ -297,7 +297,7 @@ command to read the command line arguments from the minibuffer."
       (setq comint-input-ring-file-name "~/.q_history")
       (comint-read-input-ring t)
       (set-process-sentinel process 'q-process-sentinel))
-    (q-activate-buffer (buffer-name buffer))
+    (q-activate-buffer buffer)
     process))
 
 ;;;###autoload
@@ -323,7 +323,7 @@ to read the command line arguments from the minibuffer."
       (setq comint-input-ring-file-name (concat (getenv "HOME") "/.qcon_history"))
       (comint-read-input-ring)
       (set-process-sentinel process 'q-process-sentinel))
-    (q-activate-buffer (buffer-name buffer))
+    (q-activate-buffer buffer)
     process))
 
 (defun q-show-q-buffer ()
@@ -335,10 +335,9 @@ to read the command line arguments from the minibuffer."
 (defun q-kill-q-buffer ()
   "Kill the q process and its buffer."
   (interactive)
-  (let* ((buffer (get-buffer q-active-buffer))
-         (process (get-buffer-process buffer)))
-    (if (comint-check-proc buffer) (kill-process process))
-    (if buffer (kill-buffer buffer))))
+  (let* ((process (get-buffer-process q-active-buffer)))
+    (if (comint-check-proc q-active-buffer) (kill-process process))
+    (if q-active-buffer (kill-buffer q-active-buffer))))
 
 (defun q-process-sentinel (process message)
   "Sentinel for use with q processes.
@@ -363,9 +362,9 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 
 (defun q-send-string (string)
   "Send STRING to the inferior q process stored in `q-active-buffer'."
-  (unless (cdr (assoc 'comint-process-echoes (buffer-local-variables (get-buffer q-active-buffer))))
+  (unless (cdr (assoc 'comint-process-echoes (buffer-local-variables q-active-buffer)))
     (let ((msg (concat q-msg-prefix string q-msg-postfix)))
-      (with-current-buffer (get-buffer q-active-buffer)
+      (with-current-buffer q-active-buffer
         (goto-char (point-max))
         (insert-before-markers (concat msg "\n")))
       (comint-simple-send (get-buffer-process q-active-buffer) msg)))
