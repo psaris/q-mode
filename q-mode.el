@@ -225,12 +225,12 @@ each level is indented by this amount."
   (customize-group "q"))
 
 (defvar q-active-buffer nil
-  "The string name of the q-shell buffer to send q commands.")
+  "The name of the q-shell buffer to send q commands.")
 
 (defun q-activate-this-buffer ()
   "Set the `q-activate-buffer' to the currently active buffer."
   (interactive)
-  (q-activate-buffer (buffer-name)))
+  (q-activate-buffer (current-buffer)))
 
 (defun q-activate-buffer (buffer)
   "Set the `q-active-buffer' to the supplied BUFFER."
