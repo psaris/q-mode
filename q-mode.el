@@ -659,6 +659,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (set (make-local-variable 'indent-line-function) 'q-indent-line)
   ;; enable imenu
   (set (make-local-variable 'imenu-generic-expression) q-imenu-generic-expression)
+  (add-hook 'kill-buffer-hook (lambda () (when (eq (current-buffer) q-active-buffer) (setq q-active-buffer nil))))
   )
 
 ;;; Indentation
