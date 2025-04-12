@@ -267,8 +267,8 @@ specifies the command line args to use when executing q; the
 default ARGS are obtained from the q-init customization
 variables.  In interactive use, a prefix argument directs this
 command to read the command line arguments from the minibuffer.
-If DISPLAY-Q-BUFFER is not nil, then display the q buffer process.
-Always displays q buffer when called interactively."
+If DISPLAY-Q-BUFFER is not nil, then display the q process buffer.
+Always displays the buffer when called interactively."
   (interactive (let* ((args (q-default-args))
                       (user  q-user)
                       (host  q-host))
@@ -310,8 +310,8 @@ when executing qcon; the default ARGS are obtained from the
 `q-host' and `q-init-port' customization variables.
 In interactive use, a prefix argument directs this command
 to read the command line arguments from the minibuffer.
-If DISPLAY-Q-BUFFER is not nil, then display the q buffer process.
-Always displays q buffer when called interactively."
+If DISPLAY-Q-BUFFER is not nil, then display the qcon process buffer.
+Always displays the buffer when called interactively."
   (interactive (let* ((args (q-qcon-default-args)))
                  (list (if current-prefix-arg
                            (read-string "qcon command line args: " args)
