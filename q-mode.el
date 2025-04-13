@@ -329,15 +329,18 @@ to read the command line arguments from the minibuffer."
 (defun q-show-q-buffer ()
   "Switch to the active q process, or start a new one (passing in args)."
   (interactive)
-  (unless (comint-check-proc (pop-to-buffer (get-buffer-create q-active-buffer)))
-    (q)))
+  (let* ((buffer (get-buffer q-active-buffer)))
+    (if (and (buffer-live-p buffer)
+             (comint-check-proc buffer))
+        (pop-to-buffer buffer)
+      (q))))
 
 (defun q-kill-q-buffer ()
   "Kill the q process and its buffer."
   (interactive)
   (let* ((process (get-buffer-process q-active-buffer)))
     (if (comint-check-proc q-active-buffer) (kill-process process))
-    (if q-active-buffer (kill-buffer q-active-buffer))))
+    (if q-active-buffer (and (kill-buffer q-active-buffer) (setq q-active-buffer nil)))))
 
 (defun q-process-sentinel (process message)
   "Sentinel for use with q processes.
@@ -659,8 +662,6 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (set (make-local-variable 'indent-line-function) 'q-indent-line)
   ;; enable imenu
   (set (make-local-variable 'imenu-generic-expression) q-imenu-generic-expression)
-  (add-hook 'kill-buffer-hook (lambda () (when (eq (current-buffer) q-active-buffer)
-                                           (setq q-active-buffer nil))))
   )
 
 ;;; Indentation
