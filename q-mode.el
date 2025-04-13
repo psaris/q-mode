@@ -290,7 +290,7 @@ Always displays the buffer when called interactively."
          (switches (append (if qs (list "-t" host) (list "-c")) (list cmd)))
          process)
     (when display-q-buffer (pop-to-buffer buffer))
-    (when (or current-prefix-arg  (not (comint-check-proc buffer)))
+    (when (or current-prefix-arg (not (comint-check-proc buffer)))
       (message "Starting q with the following command: \"%s\"" cmd)
       (q-shell-mode)
       (setq args (list buffer "q" command nil switches))
