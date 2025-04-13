@@ -333,9 +333,8 @@ Always displays the buffer when called interactively."
 (defun q-show-q-buffer ()
   "Switch to the active q process, or start a new one (passing in args)."
   (interactive)
-  (when (or (not q-active-buffer)
-            (not (comint-check-proc (pop-to-buffer (get-buffer-create q-active-buffer)))))
-    (q nil nil nil t)))
+  (unless (comint-check-proc (pop-to-buffer (get-buffer-create q-active-buffer)))
+    (q)))
 
 (defun q-kill-q-buffer ()
   "Kill the q process and its buffer."
