@@ -331,8 +331,12 @@ to read the command line arguments from the minibuffer."
 (defun q-show-q-buffer ()
   "Switch to the active q process, or start a new one (passing in args)."
   (interactive)
-  (unless (comint-check-proc (pop-to-buffer (get-buffer-create q-active-buffer)))
-    (q)))
+  (unless (and (buffer-live-p q-active-buffer)
+               (comint-check-proc q-active-buffer))
+    (q))
+  (if (called-interactively-p 'any)
+      (pop-to-buffer q-active-buffer)
+    (display-buffer q-active-buffer)))
 
 (defun q-kill-q-buffer ()
   "Kill the q process and its buffer."
