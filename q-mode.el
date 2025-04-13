@@ -259,16 +259,14 @@ each level is indented by this amount."
           (unless (equal port "") (format ":%s" port))))
 
 ;;;###autoload
-(defun q (&optional host user args display-q-buffer)
+(defun q (&optional host user args)
   "Start a new q process.
 The optional argument HOST and USER allow the q process to be
 started on a remote machine.  The optional ARGS argument
 specifies the command line args to use when executing q; the
 default ARGS are obtained from the q-init customization
 variables.  In interactive use, a prefix argument directs this
-command to read the command line arguments from the minibuffer.
-If DISPLAY-Q-BUFFER is not nil, then display the q process buffer.
-Always displays the buffer when called interactively."
+command to read the command line arguments from the minibuffer."
   (interactive (let* ((args (q-default-args))
                       (user  q-user)
                       (host  q-host))
@@ -276,7 +274,7 @@ Always displays the buffer when called interactively."
                      (list (read-string "Host: " host)
                            (read-string "User: " user)
                            (read-string "Q command line args: " args))
-                   (list host user args t))))
+                   (list host user args))))
 
   (unless (equal (or user "") "") (setq host (format "%s@%s" user host)))
   (let* ((cmd q-program)
@@ -289,7 +287,7 @@ Always displays the buffer when called interactively."
          (command (if qs "ssh" (getenv "SHELL")))
          (switches (append (if qs (list "-t" host) (list "-c")) (list cmd)))
          process)
-    (when display-q-buffer (pop-to-buffer buffer))
+    (pop-to-buffer buffer)
     (when (or current-prefix-arg (not (comint-check-proc buffer)))
       (message "Starting q with the following command: \"%s\"" cmd)
       (q-shell-mode)
@@ -303,22 +301,20 @@ Always displays the buffer when called interactively."
     process))
 
 ;;;###autoload
-(defun q-qcon (&optional args display-q-buffer)
+(defun q-qcon (&optional args)
   "Connect to a pre-existing q process.
 Optional argument ARGS specifies the command line args to use
 when executing qcon; the default ARGS are obtained from the
 `q-host' and `q-init-port' customization variables.
 In interactive use, a prefix argument directs this command
-to read the command line arguments from the minibuffer.
-If DISPLAY-Q-BUFFER is not nil, then display the qcon process buffer.
-Always displays the buffer when called interactively."
+to read the command line arguments from the minibuffer."
   (interactive (let* ((args (q-qcon-default-args)))
                  (list (if current-prefix-arg
                            (read-string "qcon command line args: " args)
                          args))))
   (let* ((buffer (get-buffer-create (format "*%s*" (format "qcon-%s" args))))
          process)
-    (when display-q-buffer (pop-to-buffer buffer))
+    (pop-to-buffer buffer)
     (when (or current-prefix-arg (not (comint-check-proc buffer)))
       (message "Starting qcon with the following cmd: \"%s\"" (concat q-qcon-program " " args))
       (q-shell-mode)
