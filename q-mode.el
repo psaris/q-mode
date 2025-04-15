@@ -341,9 +341,9 @@ to read the command line arguments from the minibuffer."
 (defun q-kill-q-buffer ()
   "Kill the q process and its buffer."
   (interactive)
-  (let* ((process (get-buffer-process q-active-buffer)))
-    (if (comint-check-proc q-active-buffer) (kill-process process))
-    (if q-active-buffer (kill-buffer q-active-buffer))))
+  (when q-active-buffer
+    (kill-buffer q-active-buffer)
+    (unless (buffer-live-p q-active-buffer) (setq q-active-buffer nil))))
 
 (defun q-process-sentinel (process message)
   "Sentinel for use with q processes.
