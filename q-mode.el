@@ -409,7 +409,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   "Regular expression used to find function declarations.")
 
 (defvar q-variable-regex
-    "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\|_\\)*\\s-*\\)[-.~=!@#$%^&*_+|,<>?]?::?"
+    "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\|_\\)*\\s-*\\)[-.~=!@#$%^&*_+|,<>?]?:"
   "Regular expression used to find variable declarations.")
 
 (defun q-eval-function ()
