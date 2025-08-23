@@ -650,8 +650,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 
 (defvar q-imenu-generic-expression
   (list
-   (list "variables" (concat "^" q-variable-regex) 1)
-   (list "functions" (concat "^" q-function-regex) 1) )
+   (list nil (concat "^" q-variable-regex) 1))
   "Regular expressions to get q expressions into imenu.")
 
 ;;;###autoload
