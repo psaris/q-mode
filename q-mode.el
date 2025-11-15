@@ -26,6 +26,9 @@
 
 ;; A major mode for editing q (the language written by Kx Systems, see
 ;; URL `https://code.kx.com') in Emacs.
+
+;; A Flymake backend using the "q" program is also provided.
+
 ;;
 ;; Some of its major features include:
 ;;
@@ -109,9 +112,13 @@
 ;; / End:
 
 
+(require 'cl-lib)
 (require 'comint)
 
 ;;; Code:
+
+;; local variable for the flymake-dedicated q process
+(defvar-local q--flymake-proc nil)
 
 (defgroup q nil "Major mode for editing q code." :group 'languages)
 
@@ -634,6 +641,62 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     table)
   "Syntax table for `q-mode'.")
 
+
+;; flymake
+
+(defun q-flymake (report-fn &rest _args)
+  "Flymake backend using the q program.
+Takes a Flymake callback REPORT-FN as argument, as expected of a member
+of `flymake-diagnostic-functions'.  Reads contents from disk, so only
+updates when a buffer is saved."
+  (when (process-live-p q--flymake-proc)
+    (kill-process q--flymake-proc))
+
+  (let ((source (current-buffer)))
+    (save-restriction
+      (widen)
+      ;; reset the `q--flymake-proc' process to a new q process
+      (setq
+       q--flymake-proc
+       (make-process
+        :name "q-flymake" :noquery t :connection-type 'pipe
+        :buffer (generate-new-buffer " *q-flymake*")
+        :command (list "~/bin/q" (buffer-file-name))
+        :sentinel
+        (lambda (proc _event)
+          ;; check that the process has exited (not just suspended)
+          (when (memq (process-status proc) '(exit signal))
+            (unwind-protect
+                ;; only proceed if `proc' is the same as
+                ;; `q--flymake-proc', which indicates that `proc' is
+                ;; not an obsolete process
+                (if (with-current-buffer source (eq proc q--flymake-proc))
+                    (with-current-buffer (process-buffer proc)
+                      (goto-char (point-min))
+                      (cl-loop
+                       while (search-forward-regexp
+                              (concat
+                               "^'[0-9.:T]* \\(.*\\)"  ; error message
+                               "\\(?:.\\|\\\n\\)*\\\n" ; stack trace
+                               "\\( *[[][0-9][]] *.*.[kq]:\\([0-9]+\\): \\).*\\\n" ; line number
+                               "\\( +^\\)$" ; carat showing column of error
+                               )
+                              nil t)
+                       for msg = (match-string 1)
+                       for prefix = (match-string 2)
+                       for row = (string-to-number (match-string 3))
+                       for carat = (match-string 4)
+                       for col = (- (length carat) (length prefix))
+                       for (beg . end) = (flymake-diag-region source row col)
+                       when (and beg end)
+                       collect (flymake-make-diagnostic source beg end :error msg)
+                       into diags
+                       finally (funcall report-fn diags)))
+                  (flymake-log :warning "Canceling obsolete check %s"
+                               proc))
+              (kill-buffer (process-buffer proc))))))) ; cleanup temp buffer
+      (process-send-eof q--flymake-proc))))
+
 ;; modes
 
 ;;;###autoload
@@ -664,6 +727,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (set (make-local-variable 'indent-line-function) 'q-indent-line)
   ;; enable imenu
   (set (make-local-variable 'imenu-generic-expression) q-imenu-generic-expression)
+  (add-hook 'flymake-diagnostic-functions 'q-flymake nil t)
   )
 
 ;;; Indentation
