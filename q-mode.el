@@ -411,12 +411,43 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (interactive)
   (q-eval-region (point-min) (point-max)))
 
+
+(defvar q-symbol-regex
+  "`\\(?:\\(?:\\w\\|[.]\\)\\(?:\\w\\|[_.]\\)*\\)?"
+  "Regular expression used to find symbols.")
+
+(defvar q-file-regex
+  (concat q-symbol-regex ":\\(?:\\w\\|[/:_.]\\)*")
+  "Regular expression used to find files.")
+
+(defvar q-name-regex
+  "\\_<\\([.]?[a-zA-Z]\\(?:\\w\\|[_.]\\)*\\)\\s-*"
+  "Regular expression used to find variable or function names.")
+
 (defvar q-function-regex
-  "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\|_\\)*\\s-*\\)::?\\s-*\\(?:{\\|'\\s-*\\[\\|[^;{\n]*?\\(?:::\\|[-.~=!@#$%^&*_+|,<>?/\\:']\\)\\s-*\\(?:\\s<\\|$\\|;\\)\\)"
+  (concat q-name-regex
+          ":"                           ; assignment
+          ":?"                          ; view
+          "\\s-*"                       ; potential white space
+          "\\(?:"                       ; one of the following
+          "{"                           ; function declaration
+          "\\|'\\s-*\\["                ; composition
+          "\\|[^;{\n]*?\\(?:::\\|[-.~=!@#$%^&*_+|,<>?/\\:']" ; trailing binary operator
+          "\\)"
+          "\\s-*"                       ; potential white space
+          "\\(?:\\s<\\|$\\|;\\)"        ; opening comment, new line, or semicolon
+          "\\)"
+          )
   "Regular expression used to find function declarations.")
 
 (defvar q-variable-regex
-    "\\_<\\([.]?[a-zA-Z]\\(?:\\s_\\|\\w\\|_\\)*\\s-*\\)[-.~=!@#$%^&*_+|,<>?]?:"
+  (concat q-name-regex
+          "[-.~=!@#$%^&*_+|,<>?]?"      ; potential compound assignment
+          ":"                           ; assignment
+          ":?"                          ; view
+          "\\s-*"                       ; potential space
+          "[^ )}:;\n]"                  ; something else
+          )
   "Regular expression used to find variable declarations.")
 
 (defun q-eval-function ()
@@ -526,20 +557,21 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
      '("abs" "acos" "asin" "atan" "avg" "bin" "binr" "by" "cor" "cos" "cov" "dev" "delete"
        "div" "do" "enlist" "exec" "exit" "exp" "from" "getenv" "hopen" "if" "in" "insert" "last"
        "like" "log" "max" "min" "prd" "select" "setenv" "sin" "sqrt" "ss"
-       "sum" "tan" "update" "var" "wavg" "while" "within" "wsum" "xexp") `words))
-  "Keywords for q mode.")
+       "sum" "tan" "update" "var" "wavg" "while" "within" "wsum" "xexp") `symbols))
+  "Keywords for q mode defined in .Q.res.")
 
 (defvar q-type-words
   (eval-when-compile
-    (concat "\\(`"
+    (concat "\\_<\\(`"
             (regexp-opt '("boolean" "byte" "short" "long" "real" "int" "float" "char" "symbol"
                           "month" "date" "datetime" "minute" "second" "time" "timespan" "timestamp"
-                          "year" "mm" "dd" "hh" "uu" "ss" "week") t) "\\)\\s-*[$]"))
+                          "year" "mm" "dd" "hh" "uu" "ss" "week") nil) "\\)\\_>\\s-*[$]"))
   "Types for q mode.")
 
 (defvar q-builtin-words
   (eval-when-compile
-    (concat "\\_<\\(?:[.]q[.]\\)?"
+    (concat "\\_<"
+            "\\(?:[.]q[.]\\)?"
             (regexp-opt
              '( "aj" "aj0" "ajf" "ajf0" "all" "and" "any" "asc" "asof" "attr" "avgs" "ceiling"
                 "cols" "count" "cross" "csv" "cut" "deltas" "desc"
@@ -555,41 +587,41 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
                 "trim" "type" "uj" "ujf" "ungroup" "union" "upper" "upsert" "value"
                 "view" "views" "vs" "where" "wj" "wj1" "ww" "xasc" "xbar" "xcol" "xcols" "xdesc"
                 "xgroup" "xkey" "xlog" "xprev" "xrank")) "\\_>"))
-  "Builtin functions defined in q.k.")
+  "Builtin functions for q mode defined in q.k.")
 
-(defvar q-constant-words
+(defvar q-builtin-dot-z-words
   (eval-when-compile
     (regexp-opt '(".z.D" ".z.K" ".z.T" ".z.Z" ".z.N" ".z.P" ".z.a" ".z.b" ".z.d" ".z.exit" ".z.f"
                   ".z.h" ".z.i" ".z.k" ".z.l" ".z.o" ".z.pc" ".z.pg" ".z.ph" ".z.pi"
                   ".z.po" ".z.pp" ".z.ps" ".z.pw" ".z.s" ".z.t" ".z.ts" ".z.u" ".z.vs"
                   ".z.w" ".z.x" ".z.z" ".z.n" ".z.p" ".z.ws" ".z.bm") `symbols))
-  "Constants for q mode.")
+  "Builtin .z functions/constants defined for q mode.")
 
-(defvar q-font-lock-keywords
-  (list '("^\\\\\\_<.*?$" 0 font-lock-constant-face keep) ; lines starting with a '\' are compile time
-        (list q-function-regex 1 font-lock-function-name-face nil) ; functions
+(defvar q-font-lock-keywords            ; keywords
+  (list '("^\\\\\\_<.*?$" 0 font-lock-preprocessor-face keep) ; lines starting with a '\'
+        (cons q-keywords 'font-lock-keyword-face)        ; select from
+        '("\\b[0-2]:" . font-lock-builtin-face)          ; IO/IPC
+        (cons q-builtin-words 'font-lock-builtin-face)   ; q.k
+        (cons q-builtin-dot-z-words 'font-lock-builtin-face) ; .z.*
         )
   "Minimal highlighting expressions for q mode.")
 
-(defvar q-font-lock-keywords-1 ; types
+(defvar q-font-lock-keywords-1          ; symbols
   (append q-font-lock-keywords
           (list
-           '("`:\\(?:\\w\\|[/:._]\\)*" . font-lock-preprocessor-face) ; files
-           '("\\(`\\_<[gpsu]\\)#" 1 font-lock-type-face nil) ; attributes
-           '("^'.*?$" 0 font-lock-warning-face nil)   ; error
-           '("[; ]\\('`\\w*\\)" 1 font-lock-warning-face nil) ; signal
-           '("`\\(?:\\(?:\\w\\|[.]\\)\\(?:\\s_\\|\\w\\|_\\)*\\)?" . font-lock-constant-face) ; symbols
-           '("\\b[0-2]:" . font-lock-preprocessor-face) ; IO/IPC
+           '("^'.*" . font-lock-warning-face) ; error
+           (list (concat "[; ]\\('" q-symbol-regex "\\)") 1 font-lock-warning-face nil) ; signal
+           (cons q-file-regex 'font-lock-preprocessor-face) ; files
+           '("\\_<\\(`[gpsu]\\)\\_>#" 1 font-lock-type-face nil) ; attributes
            (list q-type-words 1 font-lock-type-face nil) ; `minute`year
-           (cons q-keywords  'font-lock-keyword-face)   ; select from
-           (cons q-builtin-words 'font-lock-builtin-face) ; q.k
+           (cons q-symbol-regex 'font-lock-constant-face) ; symbols
            ))
   "More highlighting expressions for q mode.")
 
-(defvar q-font-lock-keywords-2 ; keywords & literals
+(defvar q-font-lock-keywords-2 ; function/variable names and literals
   (append q-font-lock-keywords-1
           (list
-           (cons q-constant-words 'font-lock-constant-face) ; .z.*
+           (list q-function-regex 1 'font-lock-function-name-face nil) ; functions
            (list q-variable-regex 1 font-lock-variable-name-face nil) ; variables
            '("\\_<[0-9]\\{4\\}\\.[0-9]\\{2\\}\\(?:m\\|\\.[0-9]\\{2\\}\\(?:T\\(?:[0-9]\\{2\\}\\(?::[0-9]\\{2\\}\\(?::[0-9]\\{2\\}\\(?:\\.[0-9]*\\)?\\)?\\)?\\)?\\)?\\)\\_>" . font-lock-constant-face) ; month/date/datetime
            '("\\_<\\(?:[0-9]\\{4\\}\\.[0-9]\\{2\\}\\.[0-9]\\{2\\}\\|[0-9]+\\)D\\(?:[0-9]\\(?:[0-9]\\(?::[0-9]\\{2\\}\\(?::[0-9]\\{2\\}\\(?:\\.[0-9]*\\)?\\)?\\)?\\)?\\)?\\_>" . font-lock-constant-face) ; timespan/timestamp
@@ -623,7 +655,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     (modify-syntax-entry ?\/ ".  " table) ; treat / as punctuation
     (modify-syntax-entry ?\n ">  " table) ; comments are ended by a new line
     (modify-syntax-entry ?\r ">  " table) ; comments are ended by a new line
-    (modify-syntax-entry ?\. "_  " table) ; treat . as a symbol
+    (modify-syntax-entry ?\. "_  " table) ; treat . as symbol
     (modify-syntax-entry ?\_ ".  " table) ; treat _ as punctuation
     (modify-syntax-entry ?\\ ".  " table) ; treat \ as punctuation
     (modify-syntax-entry ?\$ ".  " table) ; treat $ as punctuation
@@ -713,7 +745,7 @@ updates when a buffer is saved."
 
 (defvar q-imenu-generic-expression
   (list
-   (list nil (concat "^" q-variable-regex) 1))
+   (list nil (concat "^" q-name-regex ":") 1))
   "Regular expressions to get q expressions into imenu.")
 
 ;;;###autoload
