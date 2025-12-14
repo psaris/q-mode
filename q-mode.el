@@ -584,7 +584,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
                 "prev" "rand" "rank" "ratios" "raze" "read0" "read1" "reciprocal" "reval"
                 "reverse" "rload" "rotate" "rsave" "rtrim" "save" "scan" "scov" "sdev" "set" "show"
                 "signum" "ssr" "string" "sublist" "sums" "sv" "svar" "system" "tables" "til"
-                "trim" "type" "uj" "ujf" "ungroup" "union" "upper" "upsert" "value"
+                "trim" "type" "uj" "ujf" "ungroup" "union" "upper" "upsert" "use" "value"
                 "view" "views" "vs" "where" "wj" "wj1" "ww" "xasc" "xbar" "xcol" "xcols" "xdesc"
                 "xgroup" "xkey" "xlog" "xprev" "xrank")) "\\_>"))
   "Builtin functions for q mode defined in q.k.")
