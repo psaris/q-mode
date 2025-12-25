@@ -553,24 +553,21 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 
 (defvar q-keywords
   (eval-when-compile
-    (regexp-opt
-     '("abs" "acos" "asin" "atan" "avg" "bin" "binr" "by" "cor" "cos" "cov" "dev" "delete"
-       "div" "do" "enlist" "exec" "exit" "exp" "from" "getenv" "hopen" "if" "in" "insert" "last"
-       "like" "log" "max" "min" "prd" "select" "setenv" "sin" "sqrt" "ss"
-       "sum" "tan" "update" "var" "wavg" "while" "within" "wsum" "xexp") `symbols))
+    (concat "\\_<"
+            "\\(?:[_]\\)?"              ; leading _ is not a symbol
+            (regexp-opt
+             '("abs" "acos" "asin" "atan" "avg" "bin" "binr" "by" "cor" "cos" "cov" "dev" "delete"
+               "div" "do" "enlist" "exec" "exit" "exp" "from" "getenv" "hopen" "if" "in" "insert" "last"
+               "like" "log" "max" "min" "prd" "select" "setenv" "sin" "sqrt" "ss"
+               "sum" "tan" "update" "var" "wavg" "while" "within" "wsum" "xexp") t)
+            "\\_>"))
   "Keywords for q mode defined in .Q.res.")
-
-(defvar q-type-words
-  (eval-when-compile
-    (concat "\\_<\\(`"
-            (regexp-opt '("boolean" "byte" "short" "long" "real" "int" "float" "char" "symbol"
-                          "month" "date" "datetime" "minute" "second" "time" "timespan" "timestamp"
-                          "year" "mm" "dd" "hh" "uu" "ss" "week") nil) "\\)\\_>\\s-*[$]"))
-  "Types for q mode.")
 
 (defvar q-builtin-words
   (eval-when-compile
     (concat "\\_<"
+            "\\(?:[_]\\)?"              ; leading _ is not a symbol
+            "\\("
             "\\(?:[.]q[.]\\)?"
             (regexp-opt
              '( "aj" "aj0" "ajf" "ajf0" "all" "and" "any" "asc" "asof" "attr" "avgs" "ceiling"
@@ -586,38 +583,40 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
                 "signum" "ssr" "string" "sublist" "sums" "sv" "svar" "system" "tables" "til"
                 "trim" "type" "uj" "ujf" "ungroup" "union" "upper" "upsert" "use" "value"
                 "view" "views" "vs" "where" "wj" "wj1" "ww" "xasc" "xbar" "xcol" "xcols" "xdesc"
-                "xgroup" "xkey" "xlog" "xprev" "xrank")) "\\_>"))
+                "xgroup" "xkey" "xlog" "xprev" "xrank"))
+            "\\)"
+            "\\_>"))
   "Builtin functions for q mode defined in q.k.")
 
 (defvar q-builtin-dot-z-words
   (eval-when-compile
-    (regexp-opt '(".z.D" ".z.H" ".z.K" ".z.N" ".z.P" ".z.T" ".z.W" ".z.X" ".z.Z" ".z.a"
-                  ".z.ac" ".z.b" ".z.bm" ".z.c" ".z.d" ".z.e" ".z.ex" ".z.exit"
-                  ".z.ey" ".z.f" ".z.h" ".z.i" ".z.k" ".z.l" ".z.n" ".z.o" ".z.p"
-                  ".z.pc" ".z.pd" ".z.pg" ".z.ph" ".z.pi" ".z.pm" ".z.po" ".z.pp"
-                  ".z.pq" ".z.ps" ".z.pw" ".z.q" ".z.r" ".z.s" ".z.t" ".z.ts" ".z.u"
-                  ".z.vs" ".z.w" ".z.wc" ".z.wo" ".z.ws" ".z.x" ".z.z" ".z.zd")
-                `symbols))
+    (concat "\\_<"
+            "\\(?:[_]\\)?"              ; leading _ is not a symbol
+            (regexp-opt '(".z.D" ".z.H" ".z.K" ".z.N" ".z.P" ".z.T" ".z.W" ".z.X" ".z.Z" ".z.a"
+                          ".z.ac" ".z.b" ".z.bm" ".z.c" ".z.d" ".z.e" ".z.ex" ".z.exit"
+                          ".z.ey" ".z.f" ".z.h" ".z.i" ".z.k" ".z.l" ".z.n" ".z.o" ".z.p"
+                          ".z.pc" ".z.pd" ".z.pg" ".z.ph" ".z.pi" ".z.pm" ".z.po" ".z.pp"
+                          ".z.pq" ".z.ps" ".z.pw" ".z.q" ".z.r" ".z.s" ".z.t" ".z.ts" ".z.u"
+                          ".z.vs" ".z.w" ".z.wc" ".z.wo" ".z.ws" ".z.x" ".z.z" ".z.zd") t)
+            "\\_>"))
   "Builtin .z functions/constants defined for q mode.")
 
 (defvar q-font-lock-keywords            ; keywords
   (list '("^\\\\\\_<.*?$" 0 font-lock-preprocessor-face keep) ; lines starting with a '\'
-        (cons q-keywords 'font-lock-keyword-face)        ; select from
-        '("\\b[0-2]:" . font-lock-builtin-face)          ; IO/IPC
-        (cons q-builtin-words 'font-lock-builtin-face)   ; q.k
-        (cons q-builtin-dot-z-words 'font-lock-builtin-face) ; .z.*
+        '("^'.*" . font-lock-warning-face) ; error
+        (list (concat "[; ]\\('" q-symbol-regex "\\)") 1 font-lock-warning-face nil) ; signal
+        (cons q-file-regex 'font-lock-preprocessor-face) ; files
+        (cons q-symbol-regex 'font-lock-constant-face) ; symbols
         )
   "Minimal highlighting expressions for q mode.")
 
 (defvar q-font-lock-keywords-1          ; symbols
   (append q-font-lock-keywords
           (list
-           '("^'.*" . font-lock-warning-face) ; error
-           (list (concat "[; ]\\('" q-symbol-regex "\\)") 1 font-lock-warning-face nil) ; signal
-           (cons q-file-regex 'font-lock-preprocessor-face) ; files
-           '("\\_<\\(`[gpsu]\\)\\_>#" 1 font-lock-type-face nil) ; attributes
-           (list q-type-words 1 font-lock-type-face nil) ; `minute`year
-           (cons q-symbol-regex 'font-lock-constant-face) ; symbols
+           (list q-keywords 1 'font-lock-keyword-face nil) ; select from
+           '("\\b[0-2]:" . font-lock-builtin-face)         ; IO/IPC
+           (list q-builtin-words 1 'font-lock-builtin-face nil) ; q.k
+           (list q-builtin-dot-z-words 1 'font-lock-builtin-face nil) ; .z.*
            ))
   "More highlighting expressions for q mode.")
 
@@ -658,8 +657,8 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     (modify-syntax-entry ?\/ ".  " table) ; treat / as punctuation
     (modify-syntax-entry ?\n ">  " table) ; comments are ended by a new line
     (modify-syntax-entry ?\r ">  " table) ; comments are ended by a new line
-    (modify-syntax-entry ?\. "_  " table) ; treat . as symbol
-    (modify-syntax-entry ?\_ ".  " table) ; treat _ as punctuation
+    (modify-syntax-entry ?\. "_  " table) ; treat _ as symbol
+    (modify-syntax-entry ?\_ "_  " table) ; treat _ as symbol
     (modify-syntax-entry ?\\ ".  " table) ; treat \ as punctuation
     (modify-syntax-entry ?\$ ".  " table) ; treat $ as punctuation
     (modify-syntax-entry ?\% ".  " table) ; treat % as punctuation
