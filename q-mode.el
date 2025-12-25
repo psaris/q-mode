@@ -630,7 +630,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
            '("\\_<\\(?:[0-9]\\{4\\}\\.[0-9]\\{2\\}\\.[0-9]\\{2\\}\\|[0-9]+\\)D\\(?:[0-9]\\(?:[0-9]\\(?::[0-9]\\{2\\}\\(?::[0-9]\\{2\\}\\(?:\\.[0-9]*\\)?\\)?\\)?\\)?\\)?\\_>" . font-lock-constant-face) ; timespan/timestamp
            '("\\_<[0-9a-f]\\{8\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{12\\}\\_>" . font-lock-constant-face) ; guid
            '("\\_<[0-9]\\{2\\}:[0-9]\\{2\\}\\(?::[0-9]\\{2\\}\\(?:\\.[0-9]\\|\\.[0-9]\\{2\\}\\|\\.[0-9]\\{3\\}\\)?\\)?\\_>" . font-lock-constant-face) ; time
-           '("\\<[0-9]*[0-9.][0-9]*\\(?:[eE][+-]?[0-9]+\\)?[ef]?\\>" . font-lock-constant-face) ; floats/reals
+           '("\\_<\\(?:[0-9]+\\.\\(?:[0-9]*\\)?\\|\\.[0-9]+\\)\\(?:[eE][+-]?[0-9]+\\)?[ef]?\\_>" . font-lock-constant-face) ; floats/reals
            '("\\_<[0-9]+[cefhijnptuv]?\\_>" . font-lock-constant-face) ; char/real/float/short/int/long/time-types
            '("\\_<[01]+b\\_>" . font-lock-constant-face) ; bool
            '("\\_<0x[0-9a-fA-F]+\\_>" . font-lock-constant-face) ; bytes
