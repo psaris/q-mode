@@ -601,13 +601,17 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
             "\\_>"))
   "Builtin .z functions/constants defined for q mode.")
 
-(defvar q-font-lock-keywords            ; keywords
-  (list '("^\\\\\\_<.*?$" 0 font-lock-preprocessor-face keep) ; lines starting with a '\'
-        '("^'.*" . font-lock-warning-face) ; error
-        (list (concat "[; ]\\('" q-symbol-regex "\\)") 1 font-lock-warning-face nil) ; signal
-        (cons q-file-regex 'font-lock-preprocessor-face) ; files
-        (cons q-symbol-regex 'font-lock-constant-face) ; symbols
-        )
+(defvar q-font-lock-keywords ;; keywords
+  (list
+   ;; q single-letter system commands keep comments
+   '("^\\\\\\(?:\\w\\|[_]\\)\\(?:\\s-.*?\\)?$" 0 font-lock-preprocessor-face keep)
+   ;; os multi-letter system commands ignore comments
+   '("^\\\\\\w\\w.*?$" 0 font-lock-preprocessor-face prepend)
+   '("^'.*" . font-lock-warning-face) ; error
+   (list (concat "[; ]\\('" q-symbol-regex "\\)") 1 font-lock-warning-face nil) ; signal
+   (cons q-file-regex 'font-lock-preprocessor-face) ; files
+   (cons q-symbol-regex 'font-lock-constant-face) ; symbols
+   )
   "Minimal highlighting expressions for q mode.")
 
 (defvar q-font-lock-keywords-1          ; symbols
