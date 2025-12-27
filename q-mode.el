@@ -741,8 +741,6 @@ updates when a buffer is saved."
   (setq comint-prompt-regexp "^\\(q)+\\|[^:]*:[0-9]+>\\)")
   (setq font-lock-defaults q-font-lock-defaults)
   (set (make-local-variable 'comint-process-echoes) nil)
-  ;;  (set (make-local-variable 'comint-process-echoes) (not (equal q-host "")))
-  (set (make-local-variable 'comint-password-prompt-regexp) "[Pp]assword")
   )
 
 (defvar q-imenu-generic-expression
