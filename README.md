@@ -77,10 +77,7 @@ changed depending on your environment.
 > [!WARNING]
 > The `q-program` cannot use `rlwrap`. The usage of `rlwrap`
 > creates many issues, the most obvious is that the `q)` prompt can
-> no longer be observed. **This issue cannot be avoided when using**
-> **`KDB-X`** since `rlwrap` is
-> [embedded in the executable](https://code.kx.com/kdb-x/releases/release-notes-latest.html#3-embedded-rlwrap)
-> and cannot be turned off.
+> no longer be observed.
 
 Q-mode indents each level based on `q-indent-step`.  To indent code
 based on {}-, ()-, and []-groups instead of equal width tabs, you
