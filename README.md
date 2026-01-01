@@ -74,6 +74,11 @@ buffer.
 Specifically, the `q-program` and `q-qcon-program` variables can be
 changed depending on your environment.
 
+> [!WARNING]
+> The `q-program` cannot use `rlwrap`. The usage of `rlwrap`
+> creates many issues, the most obvious is that the `q)` prompt can
+> no longer be observed.
+
 Q-mode indents each level based on `q-indent-step`.  To indent code
 based on {}-, ()-, and []-groups instead of equal width tabs, you
 can set this value to nil.
