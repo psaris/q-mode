@@ -7,9 +7,10 @@ by [Kx Systems](http://www.kx.com))
 in [Emacs](https://www.gnu.org/software/emacs/).
 
 Some of its major features include:
-- syntax highlighting (font lock),
-- interaction with inferior q[con] instance,
-- scans declarations and places them in a menu.
+- syntax highlighting (font-lock-mode),
+- syntax checking (flymake-mode),
+- interaction with inferior q[con] instance (comint-mode),
+- variable and function indexing (imenu).
 
 ## Installation
 
@@ -68,6 +69,8 @@ If the source file exists on the same machine as the q process,
 `C-c M-l` can be used to load the file associated with the active 
 buffer.
 
+Quick access to variable and function definitions can be obtained
+using the `imenu` binding `M-g i`.
 ## Customization
 
 `M-x customize-group` can be used to customize the `q` group.
