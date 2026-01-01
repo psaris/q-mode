@@ -293,6 +293,8 @@ command to read the command line arguments from the minibuffer."
          (buffer (get-buffer-create (format "*%s*" (q-shell-name host port))))
          (command (if qs "ssh" (getenv "SHELL")))
          (switches (append (if qs (list "-t" host) (list "-c")) (list cmd)))
+         ;; disable kdb-x rlwrap functionality
+         (process-environment (cons "KX_LINE=0" process-environment))
          process)
     (when (called-interactively-p 'any) (pop-to-buffer buffer))
     (when (or current-prefix-arg (not (comint-check-proc buffer)))
