@@ -704,7 +704,7 @@ updates when a buffer is saved."
        (make-process
         :name "q-flymake" :noquery t :connection-type 'pipe
         :buffer (generate-new-buffer " *q-flymake*")
-        :command (list "~/bin/q" (buffer-file-name))
+        :command (list q-program (buffer-file-name))
         :sentinel
         (lambda (proc _event)
           ;; check that the process has exited (not just suspended)
