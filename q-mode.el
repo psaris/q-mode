@@ -592,55 +592,62 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
 ;; font-lock-constant-face font-lock-warning-face
 ;; font-lock-negation-char-face font-lock-preprocessor-face
 
-(defvar q-keywords
-  (eval-when-compile
-    (concat "\\_<"
-            "\\(?:[_]\\)?"              ; leading _ is not a symbol
-            (regexp-opt
-             '("abs" "acos" "asin" "atan" "avg" "bin" "binr" "by" "cor" "cos" "cov" "dev" "delete"
-               "div" "do" "enlist" "exec" "exit" "exp" "from" "getenv" "hopen" "if" "in" "insert" "last"
-               "like" "log" "max" "min" "prd" "select" "setenv" "sin" "sqrt" "ss"
-               "sum" "tan" "update" "var" "wavg" "while" "within" "wsum" "xexp") t)
-            "\\_>"))
+(defconst q-keyword-list
+  '("abs" "acos" "asin" "atan" "avg" "bin" "binr" "by" "cor" "cos" "cov" "dev" "delete"
+    "div" "do" "enlist" "exec" "exit" "exp" "from" "getenv" "hopen" "if" "in" "insert" "last"
+    "like" "log" "max" "min" "prd" "select" "setenv" "sin" "sqrt" "ss"
+    "sum" "tan" "update" "var" "wavg" "while" "within" "wsum" "xexp")
   "Keywords for q mode defined in .Q.res.")
 
-(defvar q-builtin-words
-  (eval-when-compile
-    (concat "\\_<"
-            "\\(?:[_]\\)?"              ; leading _ is not a symbol
-            "\\("
-            "\\(?:[.]q[.]\\)?"
-            (regexp-opt
-             '( "aj" "aj0" "ajf" "ajf0" "all" "and" "any" "asc" "asof" "attr" "avgs" "ceiling"
-                "cols" "count" "cross" "csv" "cut" "deltas" "desc"
-                "differ" "distinct" "dsave" "each" "ej" "ema" "eval" "except" "fby" "fills"
-                "first" "fkeys" "flip" "floor" "get" "group" "gtime" "hclose" "hcount"
-                "hdel" "hsym" "iasc" "idesc" "ij" "ijf" "inter" "inv" "key" "keys"
-                "lj" "ljf" "load" "lower" "lsq" "ltime" "ltrim" "mavg" "maxs" "mcount" "md5"
-                "mdev" "med" "meta" "mins" "mmax" "mmin" "mmu" "mod" "msum" "neg"
-                "next" "not" "null" "or" "over" "parse" "peach" "pj" "prds" "prior"
-                "prev" "rand" "rank" "ratios" "raze" "read0" "read1" "reciprocal" "reval"
-                "reverse" "rload" "rotate" "rsave" "rtrim" "save" "scan" "scov" "sdev" "set" "show"
-                "signum" "ssr" "string" "sublist" "sums" "sv" "svar" "system" "tables" "til"
-                "trim" "type" "uj" "ujf" "ungroup" "union" "upper" "upsert" "use" "value"
-                "view" "views" "vs" "where" "wj" "wj1" "ww" "xasc" "xbar" "xcol" "xcols" "xdesc"
-                "xgroup" "xkey" "xlog" "xprev" "xrank"))
-            "\\)"
-            "\\_>"))
+(defvar q-keywords
+  (concat "\\_<"
+          "\\(?:[_]\\)?"                ; leading _ is not a symbol
+          (regexp-opt q-keyword-list t)
+          "\\_>")
+  "Keyword regex for q mode defined in .Q.res.")
+
+(defconst q-builtin-word-list
+  '("aj" "aj0" "ajf" "ajf0" "all" "and" "any" "asc" "asof" "attr" "avgs" "ceiling"
+    "cols" "count" "cross" "csv" "cut" "deltas" "desc"
+    "differ" "distinct" "dsave" "each" "ej" "ema" "eval" "except" "fby" "fills"
+    "first" "fkeys" "flip" "floor" "get" "group" "gtime" "hclose" "hcount"
+    "hdel" "hsym" "iasc" "idesc" "ij" "ijf" "inter" "inv" "key" "keys"
+    "lj" "ljf" "load" "lower" "lsq" "ltime" "ltrim" "mavg" "maxs" "mcount" "md5"
+    "mdev" "med" "meta" "mins" "mmax" "mmin" "mmu" "mod" "msum" "neg"
+    "next" "not" "null" "or" "over" "parse" "peach" "pj" "prds" "prior"
+    "prev" "rand" "rank" "ratios" "raze" "read0" "read1" "reciprocal" "reval"
+    "reverse" "rload" "rotate" "rsave" "rtrim" "save" "scan" "scov" "sdev" "set" "show"
+    "signum" "ssr" "string" "sublist" "sums" "sv" "svar" "system" "tables" "til"
+    "trim" "type" "uj" "ujf" "ungroup" "union" "upper" "upsert" "use" "value"
+    "view" "views" "vs" "where" "wj" "wj1" "ww" "xasc" "xbar" "xcol" "xcols" "xdesc"
+    "xgroup" "xkey" "xlog" "xprev" "xrank")
   "Builtin functions for q mode defined in q.k.")
 
-(defvar q-builtin-dot-z-words
-  (eval-when-compile
-    (concat "\\_<"
-            "\\(?:[_]\\)?"              ; leading _ is not a symbol
-            (regexp-opt '(".z.D" ".z.H" ".z.K" ".z.N" ".z.P" ".z.T" ".z.W" ".z.X" ".z.Z" ".z.a"
-                          ".z.ac" ".z.b" ".z.bm" ".z.c" ".z.d" ".z.e" ".z.ex" ".z.exit"
-                          ".z.ey" ".z.f" ".z.h" ".z.i" ".z.k" ".z.l" ".z.n" ".z.o" ".z.p"
-                          ".z.pc" ".z.pd" ".z.pg" ".z.ph" ".z.pi" ".z.pm" ".z.po" ".z.pp"
-                          ".z.pq" ".z.ps" ".z.pw" ".z.q" ".z.r" ".z.s" ".z.t" ".z.ts" ".z.u"
-                          ".z.vs" ".z.w" ".z.wc" ".z.wo" ".z.ws" ".z.x" ".z.z" ".z.zd") t)
-            "\\_>"))
+(defvar q-builtin-words
+  (concat "\\_<"
+          "\\(?:[_]\\)?"                ; leading _ is not a symbol
+          "\\("
+          "\\(?:[.]q[.]\\)?"
+          (regexp-opt q-builtin-word-list)
+          "\\)"
+          "\\_>")
+  "Builtin function regex for q mode defined in q.k.")
+
+(defconst q-builtin-dot-z-word-list
+  '(".z.D" ".z.H" ".z.K" ".z.N" ".z.P" ".z.T" ".z.W" ".z.X" ".z.Z" ".z.a"
+    ".z.ac" ".z.b" ".z.bm" ".z.c" ".z.d" ".z.e" ".z.ex" ".z.exit"
+    ".z.ey" ".z.f" ".z.h" ".z.i" ".z.k" ".z.l" ".z.n" ".z.o" ".z.p"
+    ".z.pc" ".z.pd" ".z.pg" ".z.ph" ".z.pi" ".z.pm" ".z.po" ".z.pp"
+    ".z.pq" ".z.ps" ".z.pw" ".z.q" ".z.r" ".z.s" ".z.t" ".z.ts" ".z.u"
+    ".z.vs" ".z.w" ".z.wc" ".z.wo" ".z.ws" ".z.x" ".z.z" ".z.zd")
   "Builtin .z functions/constants defined for q mode.")
+
+(defvar q-builtin-dot-z-words
+  (concat "\\_<"
+          "\\(?:[_]\\)?"                ; leading _ is not a symbol
+          (regexp-opt q-builtin-dot-z-word-list t)
+          "\\_>")
+  "Builtin .z functions/constants regex defined for q mode.")
 
 (defvar q-font-lock-keywords ;; keywords
   (list
