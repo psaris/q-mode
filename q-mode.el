@@ -118,6 +118,7 @@
 (require 'cl-lib)
 (require 'comint)
 (require 'project nil t)
+(require 'xref nil t)
 
 ;;; Code:
 
@@ -1005,6 +1006,64 @@ STRING and PREDICATE are used as in ‘try-completion’."
             #'q--complete-with-action
             :exclusive 'no))))
 
+(defun q--entry->xref (entry)
+  "Convert cached ENTRY plist into an xref object."
+  (let ((summary (plist-get entry :summary))
+        (file (plist-get entry :file))
+        (buffer (plist-get entry :buffer)))
+    (xref-make summary
+               (if file
+                   (xref-make-file-location file
+                                            (plist-get entry :line)
+                                            (plist-get entry :col))
+                 (xref-make-buffer-location (or buffer (current-buffer))
+                                            (plist-get entry :pos))))))
+
+(defun q--identifier-target (identifier)
+  "Return canonical project symbol name for IDENTIFIER at point."
+  (q--canonicalize-name (q--namespace-at-point) identifier))
+
+(defun q--entries-for-identifier (identifier index-cache-var)
+  "Return raw cache entries for IDENTIFIER from INDEX-CACHE-VAR symbol."
+  (q--ensure-project-scan-cache)
+  (let ((index-cache (symbol-value index-cache-var)))
+    (when (hash-table-p index-cache)
+      (gethash (q--identifier-target identifier) index-cache))))
+
+(defun q--find-xrefs (identifier index-cache-var)
+  "Return xrefs for IDENTIFIER from INDEX-CACHE-VAR symbol."
+  (mapcar #'q--entry->xref
+          (q--entries-for-identifier identifier index-cache-var)))
+
+(defun q--find-definitions (identifier)
+  "Return xref definitions for IDENTIFIER in active scope."
+  (q--find-xrefs identifier 'q--project-definition-index-cache))
+
+(defun q--find-references (identifier)
+  "Return xref references for IDENTIFIER in active scope."
+  (q--find-xrefs identifier 'q--project-reference-index-cache))
+
+(defun q--identifier-at-point ()
+  "Return q identifier at point, or nil when unavailable."
+  (thing-at-point 'symbol t))
+
+(defun q-xref-backend ()
+  "Return xref backend for `q-mode'."
+  'q)
+
+(when (featurep 'xref)
+  (cl-defmethod xref-backend-identifier-at-point ((_backend (eql q)))
+    (q--identifier-at-point))
+
+  (cl-defmethod xref-backend-identifier-completion-table ((_backend (eql q)))
+    #'q--complete-with-action)
+
+  (cl-defmethod xref-backend-definitions ((_backend (eql q)) identifier)
+    (q--find-definitions identifier))
+
+  (cl-defmethod xref-backend-references ((_backend (eql q)) identifier)
+    (q--find-references identifier)))
+
 ;; modes
 
 ;;;###autoload
@@ -1035,6 +1094,8 @@ STRING and PREDICATE are used as in ‘try-completion’."
   (setq-local imenu-generic-expression q-imenu-generic-expression)
   ;; editor integrations
   (add-hook 'completion-at-point-functions #'q-completion-at-point nil t)
+  (when (featurep 'xref)
+    (add-hook 'xref-backend-functions #'q-xref-backend nil t))
   (add-hook 'flymake-diagnostic-functions 'q-flymake nil t)
   )
 
