@@ -117,6 +117,7 @@
 
 (require 'cl-lib)
 (require 'comint)
+(require 'project nil t)
 
 ;;; Code:
 
@@ -798,6 +799,212 @@ current buffer by checking a temporary file."
                 (kill-buffer (process-buffer proc))))))))
         (process-send-eof q--flymake-proc)))))
 
+(defconst q-capf-core-words
+  (append q-keyword-list q-builtin-word-list q-builtin-dot-z-word-list)
+"Core words used for q completion candidates.")
+
+(defvar-local q--project-definition-index-cache nil
+  "Cached map of canonical name to definition entries.")
+
+(defvar-local q--project-reference-index-cache nil
+  "Cached map of canonical name to reference entries.")
+
+(defvar-local q--project-completion-candidates-cache nil
+  "Cached list of completion candidates for current scope.")
+
+(defvar-local q--project-scan-cache-state nil
+  "State signature for project scan caches.")
+
+(defconst q--identifier-token-regex (concat q-name-regex "\\_>")
+  "Regex matching q identifiers for reference scanning.")
+
+(defconst q--namespace-command-regex "^\\\\d\\s-+\\([^ \t\n]+\\)"
+  "Regex matching q namespace switch commands.")
+
+(defun q--scannable-q-file-p (file)
+  "Return non-nil when FILE is a scannable q source file."
+  (and (string-match-p "\\.[kq]\\'" file)
+       (not (string-prefix-p ".#" (file-name-nondirectory file)))
+       (file-regular-p file)
+       (file-readable-p file)))
+
+(defun q--project-q-files ()
+  "Return q source files for current project, or current file when available."
+  (let ((project-files
+         (when (featurep 'project)
+           (let ((project (project-current nil)))
+             (when project (project-files project))))))
+    (if project-files
+        (cl-remove-if-not #'q--scannable-q-file-p project-files)
+      (let ((file (buffer-file-name)))
+        (and file (q--scannable-q-file-p file) (list file))))))
+
+(defun q--canonicalize-name (namespace name)
+  "Return canonical fully-scoped NAME using NAMESPACE context."
+  (if (char-equal ?. (aref name 0))
+      name
+    (concat (or namespace ".") "." name)))
+
+(defun q--namespace-at-point ()
+  "Return the active q namespace at point based on preceding \\d commands."
+  (save-excursion
+    (let ((limit (point))
+          (namespace nil))
+      (goto-char (point-min))
+      (while (re-search-forward q--namespace-command-regex limit t)
+        (setq namespace (match-string-no-properties 1)))
+      namespace)))
+
+(defun q--make-entry (meta &optional file)
+  "Return scanner entry from META with optional FILE location."
+  (append (list :summary (plist-get meta :summary))
+          (if file
+              (list :file file
+                    :line (plist-get meta :line)
+                    :col (plist-get meta :col))
+            (list :buffer (current-buffer)
+                  :pos (plist-get meta :pos)))))
+
+(defun q--scan-source-in-current-buffer (&optional file)
+  "Return scan artifacts from current buffer, optionally for FILE."
+  (let ((def-index (make-hash-table :test #'equal))
+        (ref-index (make-hash-table :test #'equal))
+        (symbols nil)
+        (def-pattern (concat "^" q-variable-regex))
+        (namespace nil))
+    (goto-char (point-min))
+    (while (not (eobp))
+      (beginning-of-line)
+      (if (looking-at q--namespace-command-regex)
+          (setq namespace (match-string-no-properties 1))
+        (let* ((line-start (line-beginning-position))
+               (line-end (line-end-position))
+               (line (line-number-at-pos line-start))
+               (summary (buffer-substring-no-properties line-start line-end)))
+          (cl-labels ((make-meta (pos)
+                        (list :pos pos
+                              :line line
+                              :col (save-excursion
+                                     (goto-char pos)
+                                     (current-column))
+                              :summary summary)))
+            (when (looking-at def-pattern)
+              (let* ((name (match-string-no-properties 1))
+                     (def-pos (match-beginning 0))
+                     (canonical (q--canonicalize-name namespace name))
+                     (meta (make-meta def-pos))
+                     (entry (q--make-entry meta file)))
+                (puthash canonical (cons entry (gethash canonical def-index)) def-index)
+                (push canonical symbols)))
+            (while (re-search-forward q--identifier-token-regex line-end t)
+              (let* ((name (match-string-no-properties 1))
+                     (ref-pos (match-beginning 1))
+                     (canonical (q--canonicalize-name namespace name))
+                     (meta (make-meta ref-pos))
+                     (entry (q--make-entry meta file)))
+                (puthash canonical (cons entry (gethash canonical ref-index)) ref-index))))))
+      (forward-line 1))
+    (maphash
+     (lambda (name entries)
+       (puthash name (nreverse entries) def-index))
+     def-index)
+    (maphash
+     (lambda (name entries)
+       (puthash name (nreverse entries) ref-index))
+     ref-index)
+    (list :definitions def-index
+          :references ref-index
+          :symbols (delete-dups symbols))))
+
+(defun q--scan-file-artifacts (file)
+  "Return scan artifacts for FILE."
+  (let ((buf (find-buffer-visiting file)))
+    (if (and buf (buffer-modified-p buf))
+        (with-current-buffer buf
+          (save-excursion
+            (q--scan-source-in-current-buffer)))
+      (with-temp-buffer
+        (condition-case nil
+            (progn
+              (insert-file-contents file)
+              (save-excursion
+                (q--scan-source-in-current-buffer file)))
+          (file-missing
+           (list :definitions (make-hash-table :test #'equal)
+                 :references (make-hash-table :test #'equal)
+                 :symbols nil)))))))
+
+(defun q--merge-index! (dest src)
+  "Destructively merge SRC hash index into DEST hash index."
+  (maphash
+   (lambda (name entries)
+     (puthash name (nconc (gethash name dest) entries) dest))
+   src))
+
+(defun q--source-file-state (file)
+  "Return state signature for FILE considering unsaved visiting buffers."
+  (let ((buf (find-buffer-visiting file)))
+    (if (and buf (buffer-modified-p buf))
+        (with-current-buffer buf
+          (list :buffer (buffer-chars-modified-tick)))
+      (condition-case nil
+          (list :file (file-attribute-modification-time
+                       (file-attributes file)))
+        (file-missing
+         (list :missing t))))))
+
+(defun q--compute-project-scan-cache-state (files)
+  "Return cache state signature for project scan caches over FILES."
+  (if files
+      (mapcar (lambda (file)
+                (cons file (q--source-file-state file)))
+              (sort (copy-sequence files) #'string<))
+    (list :buffer-tick (buffer-chars-modified-tick))))
+
+(defun q--ensure-project-scan-cache ()
+  "Ensure project scan caches are populated and fresh."
+  (let* ((files (q--project-q-files))
+         (state (q--compute-project-scan-cache-state files)))
+    (unless (equal state q--project-scan-cache-state)
+      (let ((def-index (make-hash-table :test #'equal))
+            (ref-index (make-hash-table :test #'equal))
+            (symbols nil))
+        (if files
+            (dolist (file files)
+              (let ((artifacts (q--scan-file-artifacts file)))
+                (q--merge-index! def-index (plist-get artifacts :definitions))
+                (q--merge-index! ref-index (plist-get artifacts :references))
+                (setq symbols (nconc symbols (plist-get artifacts :symbols)))))
+          (save-excursion
+            (let ((artifacts
+                   (q--scan-source-in-current-buffer)))
+              (setq def-index (plist-get artifacts :definitions)
+                    ref-index (plist-get artifacts :references)
+                    symbols (plist-get artifacts :symbols)))))
+        (setq q--project-scan-cache-state state
+              q--project-definition-index-cache def-index
+              q--project-reference-index-cache ref-index
+              q--project-completion-candidates-cache
+              (delete-dups (append q-capf-core-words symbols)))))))
+
+(defun q--completion-candidate-list ()
+  "Return completion candidates for current scope."
+  (q--ensure-project-scan-cache)
+  q--project-completion-candidates-cache)
+
+(defun q--complete-with-action (string predicate action)
+  "Perform q completion according to ACTION.
+STRING and PREDICATE are used as in ‘try-completion’."
+  (complete-with-action action (q--completion-candidate-list) string predicate))
+
+(defun q-completion-at-point ()
+  "Provide completion candidates for q symbols."
+  (let ((bounds (bounds-of-thing-at-point 'symbol)))
+    (when bounds
+      (list (car bounds) (cdr bounds)
+            #'q--complete-with-action
+            :exclusive 'no))))
+
 ;; modes
 
 ;;;###autoload
@@ -826,6 +1033,8 @@ current buffer by checking a temporary file."
   (setq-local indent-line-function 'q-indent-line)
   ;; enable imenu
   (setq-local imenu-generic-expression q-imenu-generic-expression)
+  ;; editor integrations
+  (add-hook 'completion-at-point-functions #'q-completion-at-point nil t)
   (add-hook 'flymake-diagnostic-functions 'q-flymake nil t)
   )
 
