@@ -936,20 +936,22 @@ current buffer by checking a temporary file."
             :symbols (delete-dups symbols)))))
 
 (defun q--scan-file-artifacts (file)
-  "Return scan artifacts for FILE."
-  (let ((buf (find-buffer-visiting file)))
-    (if (and buf (buffer-modified-p buf))
-        (with-current-buffer buf
-          (q--scan-source-in-current-buffer))
-      (with-temp-buffer
-        (condition-case nil
-            (progn
-              (insert-file-contents file)
-              (q--scan-source-in-current-buffer file))
-          (file-missing
-           (list :definitions (make-hash-table :test #'equal)
-                 :references (make-hash-table :test #'equal)
-                 :symbols nil)))))))
+  "Return scan artifacts for FILE or buffer."
+  (if (not file)
+      (q--scan-source-in-current-buffer)
+    (let ((buf (find-buffer-visiting file)))
+      (if (and buf (buffer-modified-p buf))
+          (with-current-buffer buf
+            (q--scan-source-in-current-buffer))
+        (with-temp-buffer
+          (condition-case nil
+              (progn
+                (insert-file-contents file)
+                (q--scan-source-in-current-buffer file))
+            (file-missing
+             (list :definitions (make-hash-table :test #'equal)
+                   :references (make-hash-table :test #'equal)
+                   :symbols nil))))))))
 
 (defun q--merge-index! (dest src)
   "Destructively merge SRC hash index into DEST hash index."
@@ -986,18 +988,12 @@ current buffer by checking a temporary file."
       (let ((def-index (make-hash-table :test #'equal))
             (ref-index (make-hash-table :test #'equal))
             (symbols nil))
-        (if files
-            (dolist (file files)
-              (let ((artifacts (q--scan-file-artifacts file)))
-                (q--merge-index! def-index (plist-get artifacts :definitions))
-                (q--merge-index! ref-index (plist-get artifacts :references))
-                (setq symbols (nconc symbols (plist-get artifacts :symbols)))))
-          (let ((artifacts
-                 (q--scan-source-in-current-buffer)))
-            (setq def-index (plist-get artifacts :definitions)
-                  ref-index (plist-get artifacts :references)
-                  symbols (plist-get artifacts :symbols))))
-        (setq q--project-scan-cache-state state
+        (dolist (file (or files (list nil))) ; treat nil as current buffer
+          (let ((artifacts (q--scan-file-artifacts file)))
+            (q--merge-index! def-index (plist-get artifacts :definitions))
+            (q--merge-index! ref-index (plist-get artifacts :references))
+            (setq symbols (nconc symbols (plist-get artifacts :symbols)))))
+        (setq-local q--project-scan-cache-state state
               q--project-definition-index-cache def-index
               q--project-reference-index-cache ref-index
               q--project-completion-candidates-cache
