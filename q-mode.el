@@ -884,69 +884,68 @@ current buffer by checking a temporary file."
 
 (defun q--scan-source-in-current-buffer (&optional file)
   "Return scan artifacts from current buffer, optionally for FILE."
-  (let ((def-index (make-hash-table :test #'equal))
-        (ref-index (make-hash-table :test #'equal))
-        (symbols nil)
-        (def-pattern (concat "^" q-variable-regex))
-        (namespace nil))
-    (goto-char (point-min))
-    (while (not (eobp))
-      (beginning-of-line)
-      (if (looking-at q--namespace-command-regex)
-          (setq namespace (match-string-no-properties 1))
-        (let* ((line-start (line-beginning-position))
-               (line-end (line-end-position))
-               (line (line-number-at-pos line-start))
-               (summary (buffer-substring-no-properties line-start line-end)))
-          (cl-labels ((make-meta (pos)
-                        (list :pos pos
-                              :line line
-                              :col (save-excursion
-                                     (goto-char pos)
-                                     (current-column))
-                              :summary summary)))
-            (when (looking-at def-pattern)
-              (let* ((name (match-string-no-properties 1))
-                     (def-pos (match-beginning 0))
-                     (canonical (q--canonicalize-name namespace name))
-                     (meta (make-meta def-pos))
-                     (doc (q--definition-doc def-pos))
-                     (entry (q--make-entry meta doc file)))
-                (puthash canonical (cons entry (gethash canonical def-index)) def-index)
-                (push canonical symbols)))
-            (while (re-search-forward q--identifier-token-regex line-end t)
-              (let* ((name (match-string-no-properties 1))
-                     (ref-pos (match-beginning 1))
-                     (canonical (q--canonicalize-name namespace name))
-                     (meta (make-meta ref-pos))
-                     (entry (q--make-entry meta nil file)))
-                (puthash canonical (cons entry (gethash canonical ref-index)) ref-index))))))
-      (forward-line 1))
-    (maphash
-     (lambda (name entries)
-       (puthash name (nreverse entries) def-index))
-     def-index)
-    (maphash
-     (lambda (name entries)
-       (puthash name (nreverse entries) ref-index))
-     ref-index)
-    (list :definitions def-index
-          :references ref-index
-          :symbols (delete-dups symbols))))
+  (save-excursion
+    (let ((def-index (make-hash-table :test #'equal))
+          (ref-index (make-hash-table :test #'equal))
+          (symbols nil)
+          (def-pattern (concat "^" q-variable-regex))
+          (namespace nil))
+      (goto-char (point-min))
+      (while (not (eobp))
+        (beginning-of-line)
+        (if (looking-at q--namespace-command-regex)
+            (setq namespace (match-string-no-properties 1))
+          (let* ((line-start (line-beginning-position))
+                 (line-end (line-end-position))
+                 (line (line-number-at-pos line-start))
+                 (summary (buffer-substring-no-properties line-start line-end)))
+            (cl-labels ((make-meta (pos)
+                          (list :pos pos
+                                :line line
+                                :col (save-excursion
+                                       (goto-char pos)
+                                       (current-column))
+                                :summary summary)))
+              (when (looking-at def-pattern)
+                (let* ((name (match-string-no-properties 1))
+                       (def-pos (match-beginning 0))
+                       (canonical (q--canonicalize-name namespace name))
+                       (meta (make-meta def-pos))
+                       (doc (q--definition-doc def-pos))
+                       (entry (q--make-entry meta doc file)))
+                  (puthash canonical (cons entry (gethash canonical def-index)) def-index)
+                  (push canonical symbols)))
+              (while (re-search-forward q--identifier-token-regex line-end t)
+                (let* ((name (match-string-no-properties 1))
+                       (ref-pos (match-beginning 1))
+                       (canonical (q--canonicalize-name namespace name))
+                       (meta (make-meta ref-pos))
+                       (entry (q--make-entry meta nil file)))
+                  (puthash canonical (cons entry (gethash canonical ref-index)) ref-index))))))
+        (forward-line 1))
+      (maphash
+       (lambda (name entries)
+         (puthash name (nreverse entries) def-index))
+       def-index)
+      (maphash
+       (lambda (name entries)
+         (puthash name (nreverse entries) ref-index))
+       ref-index)
+      (list :definitions def-index
+            :references ref-index
+            :symbols (delete-dups symbols)))))
 
 (defun q--scan-file-artifacts (file)
   "Return scan artifacts for FILE."
   (let ((buf (find-buffer-visiting file)))
     (if (and buf (buffer-modified-p buf))
         (with-current-buffer buf
-          (save-excursion
-            (q--scan-source-in-current-buffer)))
+          (q--scan-source-in-current-buffer))
       (with-temp-buffer
         (condition-case nil
             (progn
               (insert-file-contents file)
-              (save-excursion
-                (q--scan-source-in-current-buffer file)))
+              (q--scan-source-in-current-buffer file))
           (file-missing
            (list :definitions (make-hash-table :test #'equal)
                  :references (make-hash-table :test #'equal)
@@ -993,12 +992,11 @@ current buffer by checking a temporary file."
                 (q--merge-index! def-index (plist-get artifacts :definitions))
                 (q--merge-index! ref-index (plist-get artifacts :references))
                 (setq symbols (nconc symbols (plist-get artifacts :symbols)))))
-          (save-excursion
-            (let ((artifacts
-                   (q--scan-source-in-current-buffer)))
-              (setq def-index (plist-get artifacts :definitions)
-                    ref-index (plist-get artifacts :references)
-                    symbols (plist-get artifacts :symbols)))))
+          (let ((artifacts
+                 (q--scan-source-in-current-buffer)))
+            (setq def-index (plist-get artifacts :definitions)
+                  ref-index (plist-get artifacts :references)
+                  symbols (plist-get artifacts :symbols))))
         (setq q--project-scan-cache-state state
               q--project-definition-index-cache def-index
               q--project-reference-index-cache ref-index
