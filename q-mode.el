@@ -822,12 +822,72 @@ current buffer by checking a temporary file."
 (defconst q--namespace-command-regex "^\\\\d\\s-+\\([^ \t\n]+\\)"
   "Regex matching q namespace switch commands.")
 
+(defconst q--load-command-regex "^\\\\l\\s-+\\([^ \t\n]+\\)"
+  "Regex matching q load commands.")
+
+(defun q--scannable-loaded-file-p (file)
+  "Return non-nil when FILE explicitly loaded via \\l should be scanned."
+  (and (file-regular-p file)
+       (file-readable-p file)))
+
 (defun q--scannable-q-file-p (file)
   "Return non-nil when FILE is a scannable q source file."
   (and (string-match-p "\\.[kq]\\'" file)
-       (not (string-prefix-p ".#" (file-name-nondirectory file)))
-       (file-regular-p file)
-       (file-readable-p file)))
+       (not (string-prefix-p ".#" file))
+       (q--scannable-loaded-file-p file)))
+
+(defun q--resolve-load-path (raw file)
+  "Resolve RAW load path from FILE context."
+  (let* ((arg (string-trim raw))
+         (base-dir (and file (file-name-directory file)))
+         (path (if (file-name-absolute-p arg)
+                   arg
+                 (expand-file-name arg (or base-dir default-directory)))))
+    (and (q--scannable-loaded-file-p path) path)))
+
+(defun q--load-targets-in-buffer (&optional file)
+  "Return loaded FILE targets referenced in current buffer."
+  (let (targets)
+    (goto-char (point-min))
+    (while (re-search-forward q--load-command-regex nil t)
+      (let ((resolved (q--resolve-load-path
+                       (match-string-no-properties 1)
+                       file)))
+        (when resolved
+          (push resolved targets))))
+    (delete-dups targets)))
+
+(defun q--load-targets-in-file (file)
+  "Return loaded file targets referenced by FILE."
+  (let ((buf (find-buffer-visiting file)))
+    (if (and buf (buffer-modified-p buf))
+        (with-current-buffer buf
+          (save-excursion
+            (q--load-targets-in-buffer file)))
+      (with-temp-buffer
+        (condition-case nil
+            (progn
+              (insert-file-contents file)
+              (q--load-targets-in-buffer file))
+          (file-missing nil))))))
+
+(defun q--expand-loaded-files (roots)
+  "Return ROOTS plus recursively loaded files from \\l commands."
+  (let ((seen (make-hash-table :test #'equal))
+        (queue nil)
+        (all nil))
+    (cl-labels ((enqueue-unique (file)
+                  (unless (gethash file seen)
+                    (puthash file t seen)
+                    (push file queue)
+                    (push file all))))
+      (dolist (file roots)
+        (enqueue-unique file))
+      (while queue
+        (let ((file (pop queue)))
+          (dolist (loaded (q--load-targets-in-file file))
+            (enqueue-unique loaded)))))
+    (nreverse all)))
 
 (defun q--project-q-files ()
   "Return q source files for current project, or current file when available."
@@ -836,9 +896,12 @@ current buffer by checking a temporary file."
            (let ((project (project-current nil)))
              (when project (project-files project))))))
     (if project-files
-        (cl-remove-if-not #'q--scannable-q-file-p project-files)
+        (q--expand-loaded-files
+         (cl-remove-if-not #'q--scannable-q-file-p project-files))
       (let ((file (buffer-file-name)))
-        (and file (q--scannable-q-file-p file) (list file))))))
+        (and file
+             (q--scannable-q-file-p file)
+             (q--expand-loaded-files (list file)))))))
 
 (defun q--canonicalize-name (namespace name)
   "Return canonical fully-scoped NAME using NAMESPACE context."
