@@ -725,7 +725,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     (modify-syntax-entry ?\< ".  " table) ; treat < as punctuation
     (modify-syntax-entry ?\> ".  " table) ; treat > as punctuation
     (modify-syntax-entry ?\| ".  " table) ; treat | as punctuation
-    (modify-syntax-entry ?\` "_  " table) ; treat ` as symbol
+    (modify-syntax-entry ?\` ".  " table) ; treat ` as punctuation
     table)
   "Syntax table for `q-mode'.")
 
