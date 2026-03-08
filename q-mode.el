@@ -947,6 +947,7 @@ current buffer by checking a temporary file."
           (condition-case nil
               (progn
                 (insert-file-contents file)
+                (set-syntax-table q-mode-syntax-table)
                 (q--scan-source-in-current-buffer file))
             (file-missing
              (list :definitions (make-hash-table :test #'equal)
