@@ -856,15 +856,31 @@ current buffer by checking a temporary file."
         (setq namespace (match-string-no-properties 1)))
       namespace)))
 
-(defun q--make-entry (meta &optional file)
-  "Return scanner entry from META with optional FILE location."
+(defun q--make-entry (meta &optional doc file)
+  "Return scanner entry from META with optional DOC and FILE location."
   (append (list :summary (plist-get meta :summary))
+          (when doc
+            (list :doc doc))
           (if file
               (list :file file
                     :line (plist-get meta :line)
                     :col (plist-get meta :col))
             (list :buffer (current-buffer)
                   :pos (plist-get meta :pos)))))
+
+(defun q--definition-doc (pos)
+  "Return doc text for definition at POS from inline or preceding comments."
+  (save-excursion
+    (goto-char pos)
+    (beginning-of-line)
+    (or (when (looking-at ".*[ \t]/+[ \t]*\\(.*\\)$")
+          (match-string-no-properties 1))
+        (let (comments)
+          (while (and (= (forward-line -1) 0)
+                      (looking-at "^[ \t]*/+[ \t]*\\(.*\\)$"))
+            (push (match-string-no-properties 1) comments))
+          (when comments
+            (string-join comments " "))))))
 
 (defun q--scan-source-in-current-buffer (&optional file)
   "Return scan artifacts from current buffer, optionally for FILE."
@@ -894,7 +910,8 @@ current buffer by checking a temporary file."
                      (def-pos (match-beginning 0))
                      (canonical (q--canonicalize-name namespace name))
                      (meta (make-meta def-pos))
-                     (entry (q--make-entry meta file)))
+                     (doc (q--definition-doc def-pos))
+                     (entry (q--make-entry meta doc file)))
                 (puthash canonical (cons entry (gethash canonical def-index)) def-index)
                 (push canonical symbols)))
             (while (re-search-forward q--identifier-token-regex line-end t)
@@ -902,7 +919,7 @@ current buffer by checking a temporary file."
                      (ref-pos (match-beginning 1))
                      (canonical (q--canonicalize-name namespace name))
                      (meta (make-meta ref-pos))
-                     (entry (q--make-entry meta file)))
+                     (entry (q--make-entry meta nil file)))
                 (puthash canonical (cons entry (gethash canonical ref-index)) ref-index))))))
       (forward-line 1))
     (maphash
@@ -1064,6 +1081,20 @@ STRING and PREDICATE are used as in ‘try-completion’."
   (cl-defmethod xref-backend-references ((_backend (eql q)) identifier)
     (q--find-references identifier)))
 
+(defun q--definition-entry-at-point ()
+  "Return first definition entry for identifier at point, or nil."
+  (let ((identifier (q--identifier-at-point)))
+    (when identifier
+      (car (q--entries-for-identifier identifier
+                                      'q--project-definition-index-cache)))))
+
+(defun q-eldoc-function (&rest _ignored)
+  "Return doc text or summary for the resolved definition."
+  (let ((entry (q--definition-entry-at-point)))
+    (when entry
+      (or (plist-get entry :doc)
+          (plist-get entry :summary)))))
+
 ;; modes
 
 ;;;###autoload
@@ -1094,6 +1125,7 @@ STRING and PREDICATE are used as in ‘try-completion’."
   (setq-local imenu-generic-expression q-imenu-generic-expression)
   ;; editor integrations
   (add-hook 'completion-at-point-functions #'q-completion-at-point nil t)
+  (add-hook 'eldoc-documentation-functions #'q-eldoc-function nil t)
   (when (featurep 'xref)
     (add-hook 'xref-backend-functions #'q-xref-backend nil t))
   (add-hook 'flymake-diagnostic-functions 'q-flymake nil t)
