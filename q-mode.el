@@ -842,7 +842,7 @@ current buffer by checking a temporary file."
 
 (defun q--canonicalize-name (namespace name)
   "Return canonical fully-scoped NAME using NAMESPACE context."
-  (if (char-equal ?. (aref name 0))
+  (if (string-search "." name)
       name
     (concat (or namespace ".") "." name)))
 
