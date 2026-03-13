@@ -126,6 +126,7 @@
 
 (require 'cl-lib)
 (require 'comint)
+(require 'hideshow nil t)
 (require 'project nil t)
 (require 'xref nil t)
 
@@ -1178,6 +1179,10 @@ STRING and PREDICATE are used as in ‘try-completion’."
   (list
    (list nil (concat "^" q-name-regex ":") 1))
   "Regular expressions to get q expressions into imenu.")
+
+(with-eval-after-load 'hideshow
+  (add-to-list 'hs-special-modes-alist
+               (list 'q-mode "{" "}" "/[ \t]*" nil nil)))
 
 ;;;###autoload
 (define-derived-mode q-mode prog-mode "Q-Script"

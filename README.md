@@ -13,7 +13,8 @@ Some of its major features include:
 - variable and function indexing (imenu),
 - completion at point (CAPF),
 - signature help (eldoc),
-- definition/reference navigation (xref).
+- definition/reference navigation (xref),
+- code folding (hs-minor-mode).
 
 ## Installation
 
@@ -76,7 +77,7 @@ Quick access to variable and function definitions can be obtained
 using the `imenu` binding `M-g i`. Completion is available via
 `completion-at-point` (usually `M-TAB`). Eldoc displays signatures
 while you type, and xref provides `M-.` for definitions and `M-?`
-for references.
+for references. Folding is available with `M-x hs-minor-mode`.
 ## Customization
 
 `M-x customize-group` can be used to customize the `q` group.
