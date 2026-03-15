@@ -187,6 +187,12 @@ buffer contents to a temporary file before invoking q."
   :type 'boolean
   :group 'q)
 
+(defcustom q-rescan-idle-delay 1.0
+  "Seconds of idle time before rescanning project files after a change."
+  :safe 'numberp
+  :type 'number
+  :group 'q)
+
 (defgroup q-init nil "Q initialization variables." :group 'q)
 
 (defcustom q-init-port 0
@@ -814,6 +820,16 @@ current buffer by checking a temporary file."
   (append q-keyword-list q-builtin-word-list q-builtin-dot-z-word-list)
   "Core words used for q completion candidates.")
 
+;; Project scan caches
+;;
+;; Design goals:
+;;   1. eldoc / CAPF never block on I/O or file-list expansion.
+;;   2. Rescans happen on an idle timer, not inline on every keystroke.
+;;   3. The file list (including \l expansion) is cached separately with
+;;      a lightweight sentinel so it is not recomputed on every tick.
+;;   4. The per-file scan state uses mtimes only (one stat per file), not
+;;      full buffer-modified-p walks across the entire project.
+
 ;; scan result caches
 
 (defvar-local q--project-definition-index-cache nil
@@ -826,18 +842,22 @@ current buffer by checking a temporary file."
   "Cached list of completion candidates for current scope.")
 
 (defvar-local q--project-scan-cache-state nil
-  "State signature for project scan caches.")
+  "State signature for project scan caches (mtime-based).")
 
-(defconst q--identifier-token-regex (concat q-name-regex "\\_>")
-  "Regex matching q identifiers for reference scanning.")
 ;; file-list cache
 
-(defconst q--namespace-command-regex "^\\\\d\\s-+\\([^ \t\n]+\\)"
-  "Regex matching q namespace switch commands.")
+(defvar-local q--project-file-list-cache nil
+  "Cached list of expanded q source files for the current project.")
 
-(defconst q--load-command-regex "^\\\\l\\s-+\\([^ \t\n]+\\)"
-  "Regex matching q load commands.")
-;; Scannable file predicates
+(defvar-local q--project-file-list-sentinel nil
+  "Lightweight sentinel used to detect when the file list must be refreshed.")
+
+;; rescan timer
+
+(defvar-local q--rescan-idle-timer nil
+  "Pending idle timer for the next project rescan.")
+
+;; scannable file predicates
 
 (defun q--scannable-loaded-file-p (file)
   "Return non-nil when FILE explicitly loaded via \\l should be scanned."
@@ -849,6 +869,14 @@ current buffer by checking a temporary file."
   (and (string-match-p "\\.[kq]\\'" file)
        (not (string-prefix-p ".#" file))
        (q--scannable-loaded-file-p file)))
+
+;; \l load-target discovery
+
+(defconst q--load-command-regex "^\\\\l\\s-+\\([^ \t\n]+\\)"
+  "Regex matching q load commands.")
+
+(defconst q--namespace-command-regex "^\\\\d\\s-+\\([^ \t\n]+\\)"
+  "Regex matching q namespace switch commands.")
 
 (defun q--resolve-load-path (raw file)
   "Resolve RAW load path from FILE context."
@@ -904,19 +932,62 @@ Uses a visiting buffer when modified; otherwise reads from disk."
             (enqueue-unique loaded)))))
     (nreverse all)))
 
-(defun q--project-q-files ()
-  "Return q source files for current project, or current file when available."
-  (let ((project-files
-         (when (featurep 'project)
-           (let ((project (project-current nil)))
-             (when project (project-files project))))))
-    (if project-files
-        (q--expand-loaded-files
-         (cl-remove-if-not #'q--scannable-q-file-p project-files))
-      (let ((file (buffer-file-name)))
-        (and file
-             (q--scannable-q-file-p file)
-             (q--expand-loaded-files (list file)))))))
+;; file-list cache  (cheap sentinel; avoids \l walk on every tick)
+
+(defun q--project-root-files ()
+  "Return top-level (non-\\l-expanded) q files for the current project."
+  (if (featurep 'project)
+      (let ((project (project-current nil)))
+        (when project
+          (cl-remove-if-not #'q--scannable-q-file-p
+                            (project-files project))))
+    (let ((file (buffer-file-name)))
+      (and file (q--scannable-q-file-p file) (list file)))))
+
+(defun q--project-file-list-sentinel ()
+  "Return a cheap sentinel that changes when the file list may be stale.
+Avoids touching the filesystem; uses project root and buffer name only."
+  (list (and (featurep 'project)
+             (let ((p (project-current nil)))
+               (and p (project-root p))))
+        (buffer-file-name)))
+
+(defun q--ensure-project-file-list ()
+  "Return the cached expanded file list, refreshing when the sentinel changes.
+The \\l expansion (which reads files) only runs when the sentinel changes,
+not on every eldoc or CAPF invocation."
+  (let ((sentinel (q--project-file-list-sentinel)))
+    (unless (equal sentinel q--project-file-list-sentinel)
+      (setq-local q--project-file-list-sentinel sentinel
+                  q--project-file-list-cache
+                  (q--expand-loaded-files
+                   (or (q--project-root-files)
+                       (let ((f (buffer-file-name)))
+                         (and f (list f))))))))
+  q--project-file-list-cache)
+
+;; scan-cache state  (mtime-only; cheap per-file stat)
+
+(defun q--file-mtime (file)
+  "Return the modification time of FILE, or :missing when unavailable."
+  (condition-case nil
+      (file-attribute-modification-time (file-attributes file))
+    (file-missing :missing)))
+
+(defun q--compute-scan-cache-state (files)
+  "Return a cache-state token for FILES using mtime stats only.
+Modified visiting buffers are detected separately via `after-save-hook',
+so we do not need to call `buffer-modified-p' across all files here."
+  (if files
+      (mapcar (lambda (f) (cons f (q--file-mtime f)))
+              (sort (copy-sequence files) #'string<))
+    ;; No files on disk: use buffer modification tick as fallback.
+    (list :buffer-tick (buffer-chars-modified-tick))))
+
+;; source scanning
+
+(defconst q--identifier-token-regex (concat q-name-regex "\\_>")
+  "Regex matching q identifiers for reference scanning.")
 
 (defun q--canonicalize-name (namespace name)
   "Return canonical fully-scoped NAME using NAMESPACE context."
@@ -1039,44 +1110,49 @@ Uses a visiting buffer when modified; otherwise reads from disk."
      (puthash name (nconc (gethash name dest) entries) dest))
    src))
 
-(defun q--source-file-state (file)
-  "Return state signature for FILE considering unsaved visiting buffers."
-  (let ((buf (find-buffer-visiting file)))
-    (if (and buf (buffer-modified-p buf))
-        (with-current-buffer buf
-          (list :buffer (buffer-chars-modified-tick)))
-      (condition-case nil
-          (list :file (file-attribute-modification-time
-                       (file-attributes file)))
-        (file-missing
-         (list :missing t))))))
 
-(defun q--compute-project-scan-cache-state (files)
-  "Return cache state signature for project scan caches over FILES."
-  (if files
-      (mapcar (lambda (file)
-                (cons file (q--source-file-state file)))
-              (sort (copy-sequence files) #'string<))
-    (list :buffer-tick (buffer-chars-modified-tick))))
+;; idle-timer rescan
+
+(defun q--do-rescan (buf)
+  "Perform a full project rescan for BUF if it is still live and stale."
+  (when (buffer-live-p buf)
+    (with-current-buffer buf
+      ;; q--ensure-project-file-list uses a cheap sentinel, not \l I/O.
+      (let* ((files (q--ensure-project-file-list))
+             (state (q--compute-scan-cache-state files)))
+        (unless (equal state q--project-scan-cache-state)
+          (let ((def-index (make-hash-table :test #'equal))
+                (ref-index (make-hash-table :test #'equal))
+                (symbols nil))
+            (dolist (file (or files (list nil)))
+              (let ((artifacts (q--scan-file-artifacts file)))
+                (q--merge-index! def-index (plist-get artifacts :definitions))
+                (q--merge-index! ref-index (plist-get artifacts :references))
+                (setq symbols (nconc symbols (plist-get artifacts :symbols)))))
+            (setq-local q--project-scan-cache-state state
+                        q--project-definition-index-cache def-index
+                        q--project-reference-index-cache ref-index
+                        q--project-completion-candidates-cache
+                        (delete-dups (append q-capf-core-words symbols)))))))))
+
+(defun q--schedule-rescan ()
+  "Schedule an idle rescan, debouncing any already-pending timer."
+  (when (timerp q--rescan-idle-timer)
+    (cancel-timer q--rescan-idle-timer))
+  (setq-local q--rescan-idle-timer
+              (run-with-idle-timer q-rescan-idle-delay nil
+                                   #'q--do-rescan (current-buffer))))
 
 (defun q--ensure-project-scan-cache ()
-  "Ensure project scan caches are populated and fresh."
-  (let* ((files (q--project-q-files))
-         (state (q--compute-project-scan-cache-state files)))
-    (unless (equal state q--project-scan-cache-state)
-      (let ((def-index (make-hash-table :test #'equal))
-            (ref-index (make-hash-table :test #'equal))
-            (symbols nil))
-        (dolist (file (or files (list nil))) ; treat nil as current buffer
-          (let ((artifacts (q--scan-file-artifacts file)))
-            (q--merge-index! def-index (plist-get artifacts :definitions))
-            (q--merge-index! ref-index (plist-get artifacts :references))
-            (setq symbols (nconc symbols (plist-get artifacts :symbols)))))
-        (setq-local q--project-scan-cache-state state
-              q--project-definition-index-cache def-index
-              q--project-reference-index-cache ref-index
-              q--project-completion-candidates-cache
-              (delete-dups (append q-capf-core-words symbols)))))))
+  "Ensure caches are populated.
+On the very first call the scan runs synchronously so callers have
+data immediately.  Subsequent calls return instantly and rely on the
+idle timer (triggered by save/revert hooks) to keep caches fresh."
+  (when (null q--project-scan-cache-state)
+    ;; First-time: block once to populate caches.
+    (q--do-rescan (current-buffer))))
+
+;; completion at point
 
 (defun q--completion-candidate-list ()
   "Return completion candidates for the current scope."
@@ -1166,7 +1242,8 @@ STRING and PREDICATE are used as in `try-completion'."
                                       'q--project-definition-index-cache)))))
 
 (defun q-eldoc-function (&rest _ignored)
-  "Return doc text or summary for the resolved definition."
+  "Return doc text or summary for the resolved definition at point.
+This function never triggers I/O; it only reads from cached data."
   (let ((entry (q--definition-entry-at-point)))
     (when entry
       (or (plist-get entry :doc)
@@ -1181,8 +1258,7 @@ STRING and PREDICATE are used as in `try-completion'."
   (add-hook (make-local-variable 'comint-output-filter-functions) 'comint-strip-ctrl-m)
   (setq-local comint-prompt-regexp "^\\(q)+\\|[^:]*:[0-9]+>\\)")
   (setq-local font-lock-defaults q-font-lock-defaults)
-  (setq-local comint-process-echoes nil)
-  )
+  (setq-local comint-process-echoes nil))
 
 (defvar q-imenu-generic-expression
   (list
@@ -1210,7 +1286,10 @@ STRING and PREDICATE are used as in `try-completion'."
   (when (featurep 'xref)
     (add-hook 'xref-backend-functions #'q-xref-backend nil t))
   (add-hook 'flymake-diagnostic-functions 'q-flymake nil t)
-  )
+  ;; Schedule rescans on save/revert rather than inline on every eldoc tick.
+  ;; This keeps eldoc non-blocking: it always reads from warm caches.
+  (add-hook 'after-save-hook #'q--schedule-rescan nil t)
+  (add-hook 'after-revert-hook #'q--schedule-rescan nil t))
 
 ;; indentation
 
