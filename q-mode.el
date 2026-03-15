@@ -812,7 +812,9 @@ current buffer by checking a temporary file."
 
 (defconst q-capf-core-words
   (append q-keyword-list q-builtin-word-list q-builtin-dot-z-word-list)
-"Core words used for q completion candidates.")
+  "Core words used for q completion candidates.")
+
+;; scan result caches
 
 (defvar-local q--project-definition-index-cache nil
   "Cached map of canonical name to definition entries.")
@@ -828,12 +830,14 @@ current buffer by checking a temporary file."
 
 (defconst q--identifier-token-regex (concat q-name-regex "\\_>")
   "Regex matching q identifiers for reference scanning.")
+;; file-list cache
 
 (defconst q--namespace-command-regex "^\\\\d\\s-+\\([^ \t\n]+\\)"
   "Regex matching q namespace switch commands.")
 
 (defconst q--load-command-regex "^\\\\l\\s-+\\([^ \t\n]+\\)"
   "Regex matching q load commands.")
+;; Scannable file predicates
 
 (defun q--scannable-loaded-file-p (file)
   "Return non-nil when FILE explicitly loaded via \\l should be scanned."
@@ -868,7 +872,8 @@ current buffer by checking a temporary file."
     (delete-dups targets)))
 
 (defun q--load-targets-in-file (file)
-  "Return loaded file targets referenced by FILE."
+  "Return loaded file targets referenced by FILE.
+Uses a visiting buffer when modified; otherwise reads from disk."
   (let ((buf (find-buffer-visiting file)))
     (if (and buf (buffer-modified-p buf))
         (with-current-buffer buf
@@ -1009,7 +1014,7 @@ current buffer by checking a temporary file."
             :symbols (delete-dups symbols)))))
 
 (defun q--scan-file-artifacts (file)
-  "Return scan artifacts for FILE or buffer."
+  "Return scan artifacts for FILE or the current buffer when FILE is nil."
   (if (not file)
       (q--scan-source-in-current-buffer)
     (let ((buf (find-buffer-visiting file)))
@@ -1074,13 +1079,13 @@ current buffer by checking a temporary file."
               (delete-dups (append q-capf-core-words symbols)))))))
 
 (defun q--completion-candidate-list ()
-  "Return completion candidates for current scope."
+  "Return completion candidates for the current scope."
   (q--ensure-project-scan-cache)
   q--project-completion-candidates-cache)
 
 (defun q--complete-with-action (string predicate action)
   "Perform q completion according to ACTION.
-STRING and PREDICATE are used as in ‘try-completion’."
+STRING and PREDICATE are used as in `try-completion'."
   (complete-with-action action (q--completion-candidate-list) string predicate))
 
 (defun q-completion-at-point ()
@@ -1090,6 +1095,8 @@ STRING and PREDICATE are used as in ‘try-completion’."
       (list (car bounds) (cdr bounds)
             #'q--complete-with-action
             :exclusive 'no))))
+
+;; xref backend
 
 (defun q--entry->xref (entry)
   "Convert cached ENTRY plist into an xref object."
@@ -1149,6 +1156,8 @@ STRING and PREDICATE are used as in ‘try-completion’."
   (cl-defmethod xref-backend-references ((_backend (eql q)) identifier)
     (q--find-references identifier)))
 
+;; eldoc
+
 (defun q--definition-entry-at-point ()
   "Return first definition entry for identifier at point, or nil."
   (let ((identifier (q--identifier-at-point)))
@@ -1203,7 +1212,7 @@ STRING and PREDICATE are used as in ‘try-completion’."
   (add-hook 'flymake-diagnostic-functions 'q-flymake nil t)
   )
 
-;;; Indentation
+;; indentation
 
 (defun q-indent-line ()
   "Indent current line as q."
