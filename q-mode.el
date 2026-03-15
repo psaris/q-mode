@@ -1233,22 +1233,22 @@ STRING and PREDICATE are used as in `try-completion'."
 
 (defun q-compute-indent-sexp ()
   "Compute the indent for a line using sexp."
-    (backward-up-list)
-    (let ((savepos (point)))
-      (beginning-of-line)
-      (+ 1 (- savepos (point)))))
+  (backward-up-list)
+  (let ((savepos (point)))
+    (beginning-of-line)
+    (+ 1 (- savepos (point)))))
 
 (defun q-compute-indent-tab ()
   "Compute the indent for a line using tabs."
-    (let ((n 0)
-          pos)
-      (condition-case nil
-          (while (progn (setq pos (point))
-                        (backward-up-list)
-                        (/= (point) pos))
-            (setq n (+ n 1))
-            n)
-        (scan-error n))))
+  (let ((n 0)
+        pos)
+    (condition-case nil
+        (while (progn (setq pos (point))
+                      (backward-up-list)
+                      (/= (point) pos))
+          (setq n (+ n 1))
+          n)
+      (scan-error n))))
 
 (provide 'q-mode)
 
