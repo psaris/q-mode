@@ -825,37 +825,56 @@ current buffer by checking a temporary file."
 ;; Design goals:
 ;;   1. eldoc / CAPF never block on I/O or file-list expansion.
 ;;   2. Rescans happen on an idle timer, not inline on every keystroke.
-;;   3. The file list (including \l expansion) is cached separately with
+;;   3. All buffers belonging to the same project share one cache entry
+;;      so the project is scanned once regardless of how many files are open.
+;;   4. The file list (including \l expansion) is cached separately with
 ;;      a lightweight sentinel so it is not recomputed on every tick.
-;;   4. The per-file scan state uses mtimes only (one stat per file), not
+;;   5. The per-file scan state uses mtimes only (one stat per file), not
 ;;      full buffer-modified-p walks across the entire project.
 
-;; scan result caches
-
-(defvar-local q--project-definition-index-cache nil
-  "Cached map of canonical name to definition entries.")
-
-(defvar-local q--project-reference-index-cache nil
-  "Cached map of canonical name to reference entries.")
-
-(defvar-local q--project-completion-candidates-cache nil
-  "Cached list of completion candidates for current scope.")
-
-(defvar-local q--project-scan-cache-state nil
-  "State signature for project scan caches (mtime-based).")
-
-;; file-list cache
-
-(defvar-local q--project-file-list-cache nil
-  "Cached list of expanded q source files for the current project.")
-
-(defvar-local q--project-file-list-sentinel nil
-  "Lightweight sentinel used to detect when the file list must be refreshed.")
-
-;; rescan timer
+;; Per-buffer state: only the idle timer is buffer-local; all scan data
+;; lives in the shared project store below.
 
 (defvar-local q--rescan-idle-timer nil
   "Pending idle timer for the next project rescan.")
+
+;; Shared project store: project-root -> plist
+;;
+;; Keys stored in each plist:
+;;   :definition-index        hash-table  canonical-name -> entry list
+;;   :reference-index         hash-table  canonical-name -> entry list
+;;   :completion-candidates   list
+;;   :scan-state              mtime token (output of q--compute-scan-cache-state)
+;;   :file-list               list of expanded q source files
+;;   :file-list-sentinel      cheap sentinel for file-list validity
+
+(defvar q--project-cache (make-hash-table :test #'equal)
+  "Global map from project key to shared scan cache plist.
+All q-mode buffers belonging to the same project read and write the
+same entry, so the project is scanned at most once at any given time.")
+
+;; project key and plist accessors
+
+(defun q--project-key ()
+  "Return a string key identifying the current buffer's project.
+Uses the expanded project root when available, otherwise the buffer's
+file path.  Returns nil for unsaved buffers with no project."
+  (or (and (featurep 'project)
+           (let ((p (project-current nil)))
+             (and p (expand-file-name (project-root p)))))
+      (buffer-file-name)))
+
+(defun q--project-plist-get (prop)
+  "Return PROP from the shared cache plist for the current buffer's project."
+  (plist-get (gethash (q--project-key) q--project-cache) prop))
+
+(defun q--project-plist-put (&rest kvs)
+  "Set key-value pairs KVS in the shared cache plist for the current project."
+  (let* ((key (q--project-key))
+         (plist (gethash key q--project-cache)))
+    (while kvs
+      (setq plist (plist-put plist (pop kvs) (pop kvs))))
+    (puthash key plist q--project-cache)))
 
 ;; scannable file predicates
 
@@ -932,7 +951,7 @@ Uses a visiting buffer when modified; otherwise reads from disk."
             (enqueue-unique loaded)))))
     (nreverse all)))
 
-;; file-list cache  (cheap sentinel; avoids \l walk on every tick)
+;; file-list cache (cheap sentinel; avoids \l walk on every tick)
 
 (defun q--project-root-files ()
   "Return top-level (non-\\l-expanded) q files for the current project."
@@ -946,10 +965,8 @@ Uses a visiting buffer when modified; otherwise reads from disk."
 
 (defun q--project-file-list-sentinel ()
   "Return a cheap sentinel that changes when the file list may be stale.
-Avoids touching the filesystem; uses project root and buffer name only."
-  (list (and (featurep 'project)
-             (let ((p (project-current nil)))
-               (and p (project-root p))))
+Avoids touching the filesystem; uses the project key and buffer name only."
+  (list (q--project-key)
         (buffer-file-name)))
 
 (defun q--ensure-project-file-list ()
@@ -957,16 +974,16 @@ Avoids touching the filesystem; uses project root and buffer name only."
 The \\l expansion (which reads files) only runs when the sentinel changes,
 not on every eldoc or CAPF invocation."
   (let ((sentinel (q--project-file-list-sentinel)))
-    (unless (equal sentinel q--project-file-list-sentinel)
-      (setq-local q--project-file-list-sentinel sentinel
-                  q--project-file-list-cache
-                  (q--expand-loaded-files
-                   (or (q--project-root-files)
-                       (let ((f (buffer-file-name)))
-                         (and f (list f))))))))
-  q--project-file-list-cache)
+    (unless (equal sentinel (q--project-plist-get :file-list-sentinel))
+      (let ((files (q--expand-loaded-files
+                    (or (q--project-root-files)
+                        (let ((f (buffer-file-name)))
+                          (and f (list f)))))))
+        (q--project-plist-put :file-list-sentinel sentinel
+                               :file-list files))))
+  (q--project-plist-get :file-list))
 
-;; scan-cache state  (mtime-only; cheap per-file stat)
+;; scan-cache state (mtime-only; cheap per-file stat)
 
 (defun q--file-mtime (file)
   "Return the modification time of FILE, or :missing when unavailable."
@@ -1110,17 +1127,17 @@ so we do not need to call `buffer-modified-p' across all files here."
      (puthash name (nconc (gethash name dest) entries) dest))
    src))
 
-
 ;; idle-timer rescan
 
 (defun q--do-rescan (buf)
-  "Perform a full project rescan for BUF if it is still live and stale."
+  "Perform a full project rescan for BUF if it is still live and stale.
+Writes results into the shared project cache so all buffers in the
+same project benefit without rescanning independently."
   (when (buffer-live-p buf)
     (with-current-buffer buf
-      ;; q--ensure-project-file-list uses a cheap sentinel, not \l I/O.
       (let* ((files (q--ensure-project-file-list))
              (state (q--compute-scan-cache-state files)))
-        (unless (equal state q--project-scan-cache-state)
+        (unless (equal state (q--project-plist-get :scan-state))
           (let ((def-index (make-hash-table :test #'equal))
                 (ref-index (make-hash-table :test #'equal))
                 (symbols nil))
@@ -1129,11 +1146,12 @@ so we do not need to call `buffer-modified-p' across all files here."
                 (q--merge-index! def-index (plist-get artifacts :definitions))
                 (q--merge-index! ref-index (plist-get artifacts :references))
                 (setq symbols (nconc symbols (plist-get artifacts :symbols)))))
-            (setq-local q--project-scan-cache-state state
-                        q--project-definition-index-cache def-index
-                        q--project-reference-index-cache ref-index
-                        q--project-completion-candidates-cache
-                        (delete-dups (append q-capf-core-words symbols)))))))))
+            (q--project-plist-put
+             :scan-state state
+             :definition-index def-index
+             :reference-index ref-index
+             :completion-candidates
+             (delete-dups (append q-capf-core-words symbols)))))))))
 
 (defun q--schedule-rescan ()
   "Schedule an idle rescan, debouncing any already-pending timer."
@@ -1144,20 +1162,35 @@ so we do not need to call `buffer-modified-p' across all files here."
                                    #'q--do-rescan (current-buffer))))
 
 (defun q--ensure-project-scan-cache ()
-  "Ensure caches are populated.
-On the very first call the scan runs synchronously so callers have
-data immediately.  Subsequent calls return instantly and rely on the
-idle timer (triggered by save/revert hooks) to keep caches fresh."
-  (when (null q--project-scan-cache-state)
-    ;; First-time: block once to populate caches.
+  "Ensure the shared project cache is populated for the current buffer.
+On the very first call the scan runs synchronously so callers have data
+immediately.  Subsequent calls return instantly; the idle timer --
+triggered by save/revert hooks -- keeps the cache fresh."
+  (when (and (q--project-key)
+             (null (q--project-plist-get :scan-state)))
     (q--do-rescan (current-buffer))))
+
+(defun q--maybe-evict-project-cache ()
+  "Return the shared cache when no more `q-mode' buffers exist for this project.
+Intended for use in `kill-buffer-hook' to avoid unbounded cache growth."
+  (let ((key (q--project-key)))
+    (when key
+      (unless (cl-some (lambda (buf)
+                         (and (not (eq buf (current-buffer)))
+                              (buffer-live-p buf)
+                              (with-current-buffer buf
+                                (and (eq major-mode 'q-mode)
+                                     (equal (q--project-key) key)))))
+                       (buffer-list))
+        (remhash key q--project-cache)))))
 
 ;; completion at point
 
 (defun q--completion-candidate-list ()
   "Return completion candidates for the current scope."
   (q--ensure-project-scan-cache)
-  q--project-completion-candidates-cache)
+  (or (q--project-plist-get :completion-candidates)
+      q-capf-core-words))
 
 (defun q--complete-with-action (string predicate action)
   "Perform q completion according to ACTION.
@@ -1191,25 +1224,26 @@ STRING and PREDICATE are used as in `try-completion'."
   "Return canonical project symbol name for IDENTIFIER at point."
   (q--canonicalize-name (q--namespace-at-point) identifier))
 
-(defun q--entries-for-identifier (identifier index-cache-var)
-  "Return raw cache entries for IDENTIFIER from INDEX-CACHE-VAR symbol."
+(defun q--entries-for-identifier (identifier index-key)
+  "Return raw cache entries for IDENTIFIER from the shared INDEX-KEY.
+INDEX-KEY is a plist keyword such as :definition-index or :reference-index."
   (q--ensure-project-scan-cache)
-  (let ((index-cache (symbol-value index-cache-var)))
-    (when (hash-table-p index-cache)
-      (gethash (q--identifier-target identifier) index-cache))))
+  (let ((index (q--project-plist-get index-key)))
+    (when (hash-table-p index)
+      (gethash (q--identifier-target identifier) index))))
 
-(defun q--find-xrefs (identifier index-cache-var)
-  "Return xrefs for IDENTIFIER from INDEX-CACHE-VAR symbol."
+(defun q--find-xrefs (identifier index-key)
+  "Return xrefs for IDENTIFIER from the shared INDEX-KEY."
   (mapcar #'q--entry->xref
-          (q--entries-for-identifier identifier index-cache-var)))
+          (q--entries-for-identifier identifier index-key)))
 
 (defun q--find-definitions (identifier)
   "Return xref definitions for IDENTIFIER in active scope."
-  (q--find-xrefs identifier 'q--project-definition-index-cache))
+  (q--find-xrefs identifier :definition-index))
 
 (defun q--find-references (identifier)
   "Return xref references for IDENTIFIER in active scope."
-  (q--find-xrefs identifier 'q--project-reference-index-cache))
+  (q--find-xrefs identifier :reference-index))
 
 (defun q--identifier-at-point ()
   "Return q identifier at point, or nil when unavailable."
@@ -1238,8 +1272,7 @@ STRING and PREDICATE are used as in `try-completion'."
   "Return first definition entry for identifier at point, or nil."
   (let ((identifier (q--identifier-at-point)))
     (when identifier
-      (car (q--entries-for-identifier identifier
-                                      'q--project-definition-index-cache)))))
+      (car (q--entries-for-identifier identifier :definition-index)))))
 
 (defun q-eldoc-function (&rest _ignored)
   "Return doc text or summary for the resolved definition at point.
@@ -1287,9 +1320,11 @@ This function never triggers I/O; it only reads from cached data."
     (add-hook 'xref-backend-functions #'q-xref-backend nil t))
   (add-hook 'flymake-diagnostic-functions 'q-flymake nil t)
   ;; Schedule rescans on save/revert rather than inline on every eldoc tick.
-  ;; This keeps eldoc non-blocking: it always reads from warm caches.
+  ;; This keeps eldoc non-blocking: it always reads from the shared cache.
   (add-hook 'after-save-hook #'q--schedule-rescan nil t)
-  (add-hook 'after-revert-hook #'q--schedule-rescan nil t))
+  (add-hook 'after-revert-hook #'q--schedule-rescan nil t)
+  ;; Evict the shared project cache when the last buffer for a project closes.
+  (add-hook 'kill-buffer-hook #'q--maybe-evict-project-cache nil t))
 
 ;; indentation
 
