@@ -469,19 +469,19 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (q-eval-region (point-min) (point-max)))
 
 
-(defvar q-symbol-regex
+(defconst q-symbol-regex
   "`\\(?:\\(?:\\w\\|[.]\\)\\(?:\\w\\|[_.]\\)*\\)?"
   "Regular expression used to find symbols.")
 
-(defvar q-file-regex
+(defconst q-file-regex
   (concat q-symbol-regex ":\\(?:\\w\\|[/:_.]\\)*")
   "Regular expression used to find files.")
 
-(defvar q-name-regex
+(defconst q-name-regex
   "\\_<\\([.]?[a-zA-Z]\\(?:\\w\\|[_.]\\)*\\)\\s-*"
   "Regular expression used to find variable or function names.")
 
-(defvar q-function-regex
+(defconst q-function-regex
   (concat q-name-regex
           ":"                           ; assignment
           ":?"                          ; view
@@ -497,7 +497,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
           )
   "Regular expression used to find function declarations.")
 
-(defvar q-variable-regex
+(defconst q-variable-regex
   (concat q-name-regex
           "[-.~=!@#$%^&*_+|,<>?]?"      ; potential compound assignment
           ":"                           ; assignment
@@ -622,7 +622,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     "sum" "tan" "update" "var" "wavg" "while" "within" "wsum" "xexp")
   "Keywords for q mode defined in .Q.res.")
 
-(defvar q-keywords
+(defconst q-keywords
   (concat "\\_<"
           "\\(?:[_]\\)?"                ; leading _ is not a symbol
           (regexp-opt q-keyword-list t)
@@ -646,7 +646,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     "xgroup" "xkey" "xlog" "xprev" "xrank")
   "Builtin functions for q mode defined in q.k.")
 
-(defvar q-builtin-words
+(defconst q-builtin-words
   (concat "\\_<"
           "\\(?:[_]\\)?"                ; leading _ is not a symbol
           "\\("
@@ -665,14 +665,14 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     ".z.vs" ".z.w" ".z.wc" ".z.wo" ".z.ws" ".z.x" ".z.z" ".z.zd")
   "Builtin .z functions/constants defined for q mode.")
 
-(defvar q-builtin-dot-z-words
+(defconst q-builtin-dot-z-words
   (concat "\\_<"
           "\\(?:[_]\\)?"                ; leading _ is not a symbol
           (regexp-opt q-builtin-dot-z-word-list t)
           "\\_>")
   "Builtin .z functions/constants regex defined for q mode.")
 
-(defvar q-font-lock-keywords ;; keywords
+(defconst q-font-lock-keywords ;; keywords
   (list
    ;; q single-letter system commands keep comments
    '("^\\\\\\(?:\\w\\|[_]\\)\\(?:\\s-.*?\\)?$" 0 font-lock-preprocessor-face keep)
@@ -685,7 +685,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
    )
   "Minimal highlighting expressions for q mode.")
 
-(defvar q-font-lock-keywords-1          ; symbols
+(defconst q-font-lock-keywords-1          ; symbols
   (append q-font-lock-keywords
           (list
            (list q-keywords 1 'font-lock-keyword-face nil) ; select from
@@ -695,7 +695,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
            ))
   "More highlighting expressions for q mode.")
 
-(defvar q-font-lock-keywords-2 ; function/variable names and literals
+(defconst q-font-lock-keywords-2 ; function/variable names and literals
   (append q-font-lock-keywords-1
           (list
            (list q-function-regex 1 'font-lock-function-name-face nil) ; functions
@@ -713,7 +713,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
            ))
   "Most highlighting expressions for q mode.")
 
-(defvar q-font-lock-defaults
+(defconst q-font-lock-defaults
   '((q-font-lock-keywords q-font-lock-keywords-1 q-font-lock-keywords-2)
     nil nil nil nil
     (font-lock-syntactic-keywords . (("^\\(\/\\)\\s-*$"     1 "< b") ; begin multiline comment /
@@ -1346,7 +1346,7 @@ This function never triggers I/O; it only reads from cached data."
   (setq-local font-lock-defaults q-font-lock-defaults)
   (setq-local comint-process-echoes nil))
 
-(defvar q-imenu-generic-expression
+(defconst q-imenu-generic-expression
   (list
    (list nil (concat "^" q-name-regex ":") 1))
   "Regular expressions to get q expressions into imenu.")
