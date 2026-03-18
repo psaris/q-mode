@@ -82,7 +82,10 @@ for references. Folding is available with `M-x hs-minor-mode`.
 
 `M-x customize-group` can be used to customize the `q` group.
 Specifically, the `q-program` and `q-qcon-program` variables can be
-changed depending on your environment.
+changed depending on your environment.  The `q-rescan-idle-delay`
+variable controls how long to wait after a save before rescanning;
+it debounces rapid saves and defers the check for out-of-band disk
+changes such as those made by git pull.
 
 > [!WARNING]
 > The `q-program` cannot use `rlwrap`. The usage of `rlwrap`

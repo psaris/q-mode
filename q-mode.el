@@ -100,7 +100,10 @@
 
 ;; `M-x customize-group' can be used to customize the `q' group.
 ;; Specifically, the `q-program' and `q-qcon-program' variables can be
-;; changed depending on your environment.
+;; changed depending on your environment.  The `q-rescan-idle-delay'
+;; variable controls how long to wait after a save before rescanning;
+;; it debounces rapid saves and defers the check for out-of-band disk
+;; changes such as those made by git pull.
 
 ;; Q-mode indents each level based on `q-indent-step'.  To indent code
 ;; based on {}-, ()-, and []-groups instead of equal width tabs, you
@@ -188,7 +191,9 @@ buffer contents to a temporary file before invoking q."
   :group 'q)
 
 (defcustom q-rescan-idle-delay 1.0
-  "Seconds of idle time before rescanning project files after a change."
+"Seconds of idle time before rescanning after a save.
+Debounces rapid successive saves and defers the check for out-of-band
+disk changes (e.g. from git pull) until Emacs has been idle this long."
   :safe 'numberp
   :type 'number
   :group 'q)
