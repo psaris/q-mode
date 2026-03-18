@@ -349,7 +349,7 @@ command to read the command line arguments from the minibuffer."
     (when (called-interactively-p 'any) (pop-to-buffer buffer))
     (when (or current-prefix-arg (not (q-shell-buffer-p buffer)))
       (with-current-buffer buffer
-        (message "q: starting q with command: \"%s\"" cmd)
+        (message "q: starting q with command \"%s\"" cmd)
         (q-shell-mode)
         (setq args (list buffer "q" command nil switches))
         (setq process (get-buffer-process (apply 'comint-exec args)))
