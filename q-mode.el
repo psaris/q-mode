@@ -351,9 +351,8 @@ command to read the command line arguments from the minibuffer."
       (with-current-buffer buffer
         (message "q: starting q with command \"%s\"" cmd)
         (q-shell-mode)
-        (setq args (list buffer "q" command nil switches))
-        (setq process (get-buffer-process (apply 'comint-exec args)))
-
+        (let ((comint-args (list buffer "q" command nil switches)))
+          (setq process (get-buffer-process (apply 'comint-exec comint-args))))
         (setq comint-input-ring-file-name "~/.q_history")
         (comint-read-input-ring t)
         (set-process-sentinel process 'q-process-sentinel)))
