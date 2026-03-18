@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2006-2026 Nick Psaris <nick.psaris@gmail.com>
 ;; Keywords: faces files q
-;; Package-Requires: ((emacs "24"))
+;; Package-Requires: ((emacs "28"))
 ;; Created: 8 Jun 2015
 ;; Version: 0.1
 ;; URL: https://github.com/psaris/q-mode
