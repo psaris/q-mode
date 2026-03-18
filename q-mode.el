@@ -406,14 +406,15 @@ to read the command line arguments from the minibuffer."
   "Sentinel for use with q processes.
 This marks the PROCESS with a MESSAGE, at a particular time point."
   (comint-write-input-ring)
-  (let ((buffer (process-buffer process)))
-    (setq message (replace-regexp-in-string "[\r\n]+\\'" "" (or message "")))
-    (setq message (format "\nProcess %s %s at %s\n"
-                          (process-name process) message (current-time-string)))
+  (let ((buffer (process-buffer process))
+        (text (format "\nProcess %s %s at %s\n"
+                      (process-name process)
+                      (replace-regexp-in-string "[\r\n]+\\'" "" (or message ""))
+                      (current-time-string))))
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
         (goto-char (point-max))
-        (insert-before-markers message)))))
+        (insert-before-markers text)))))
 
 (defun q-strip (text)                 ; order matters, don't rearrange
   "Strip TEXT of all trailing comments, newlines and excessive whitespace."
