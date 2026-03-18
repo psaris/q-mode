@@ -344,7 +344,7 @@ command to read the command line arguments from the minibuffer."
     (when (called-interactively-p 'any) (pop-to-buffer buffer))
     (when (or current-prefix-arg (not (q-shell-buffer-p buffer)))
       (with-current-buffer buffer
-        (message "Starting q with the following command: \"%s\"" cmd)
+        (message "q: starting q with command: \"%s\"" cmd)
         (q-shell-mode)
         (setq args (list buffer "q" command nil switches))
         (setq process (get-buffer-process (apply 'comint-exec args)))
@@ -372,7 +372,7 @@ to read the command line arguments from the minibuffer."
     (when (called-interactively-p 'any) (pop-to-buffer buffer))
     (when (or current-prefix-arg (not (q-shell-buffer-p buffer)))
       (with-current-buffer buffer
-        (message "Starting qcon with the following cmd: \"%s\"" (concat q-qcon-program " " args))
+        (message "q: starting qcon with command \"%s\"" (concat q-qcon-program " " args))
         (q-shell-mode)
         (setq comint-process-echoes nil)
         (setq process (get-buffer-process (comint-exec buffer "qcon" q-qcon-program nil (list args))))
