@@ -371,7 +371,7 @@ to read the command line arguments from the minibuffer."
                  (list (if current-prefix-arg
                            (read-string "qcon command line args: " args)
                          args))))
-  (let* ((buffer (get-buffer-create (format "*%s*" (format "qcon-%s" args))))
+  (let* ((buffer (get-buffer-create (format "*qcon-%s*" args)))
          process)
     (when (called-interactively-p 'any) (pop-to-buffer buffer))
     (when (or current-prefix-arg (not (q-shell-buffer-p buffer)))
