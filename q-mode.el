@@ -191,7 +191,7 @@ buffer contents to a temporary file before invoking q."
   :group 'q)
 
 (defcustom q-rescan-idle-delay 1.0
-"Seconds of idle time before rescanning after a save.
+  "Seconds of idle time before rescanning after a save.
 Debounces rapid successive saves and defers the check for out-of-band
 disk changes (e.g. from git pull) until Emacs has been idle this long."
   :safe 'numberp
@@ -865,7 +865,7 @@ current buffer by checking a temporary file."
 
 (defvar q--project-cache (make-hash-table :test #'equal)
   "Global map from project key to shared scan cache plist.
-All q-mode buffers belonging to the same project read and write the
+All `q-mode' buffers belonging to the same project read and write the
 same entry, so the project is scanned at most once at any given time.")
 
 ;; project key and plist accessors
