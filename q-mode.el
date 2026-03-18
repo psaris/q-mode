@@ -1256,16 +1256,14 @@ Intended for use in `kill-buffer-hook' to avoid unbounded cache growth."
 
 ;; completion at point
 
-(defun q--completion-candidate-list ()
-  "Return completion candidates for the current scope."
-  (q--ensure-project-scan-cache)
-  (or (q--project-plist-get :completion-candidates)
-      q-capf-core-words))
-
 (defun q--complete-with-action (string predicate action)
   "Perform q completion according to ACTION.
 STRING and PREDICATE are used as in `try-completion'."
-  (complete-with-action action (q--completion-candidate-list) string predicate))
+  (q--ensure-project-scan-cache)
+  (complete-with-action action
+                        (or (q--project-plist-get :completion-candidates)
+                            q-capf-core-words)
+                        string predicate))
 
 (defun q-completion-at-point ()
   "Provide completion candidates for q symbols."
