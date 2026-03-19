@@ -257,6 +257,7 @@ disk changes (e.g. from git pull) until Emacs has been idle this long."
 
 (defcustom q-qcon-password ""
   "Password for remote q server."
+  :safe 'stringp
   :type 'string
   :group 'q-qcon)
 
