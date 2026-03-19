@@ -978,12 +978,12 @@ Uses a visiting buffer when modified; otherwise reads from disk."
   "Return the cached expanded file list, refreshing when project or file changes.
 The \\l expansion only runs when the sentinel changes, not on every
 eldoc or CAPF invocation."
-  (let ((sentinel (list (q--project-key) (buffer-file-name))))
+  (let* ((file     (buffer-file-name))
+         (sentinel (list (q--project-key) file)))
     (unless (equal sentinel (q--project-plist-get :file-list-sentinel))
       (let ((files (q--expand-loaded-files
                     (or (q--project-root-files)
-                        (let ((f (buffer-file-name)))
-                          (and f (list f)))))))
+                        (and file (list file))))))
         (q--project-plist-put :file-list-sentinel sentinel
                                :file-list files))))
   (q--project-plist-get :file-list))
