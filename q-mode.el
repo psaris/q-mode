@@ -436,7 +436,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
         (goto-char (point-max))
         (insert-before-markers (concat msg "\n")))
       (comint-simple-send (get-buffer-process q-active-buffer) msg)))
-  (if (equal current-prefix-arg '(16)) (q-show-q-buffer)))
+  (when (equal current-prefix-arg '(16)) (q-show-q-buffer)))
 
 (defun q-eval-region (start end)
   "Send the region between START and END to the inferior q[con] process."
