@@ -82,10 +82,11 @@
 ;; The following commands are available to interact with an inferior
 ;; q[con] process/buffer.  `C-c C-j' (as well as `C-c C-l' and
 ;; `C-M-x') sends a single line, `C-c C-f' sends the surrounding
-;; function, `C-c C-r' sends the selected region and `C-c C-b' sends
-;; the whole buffer.  If prefixed with `C-u C-u', or pressing `C-c
-;; M-j' `C-c M-f' `C-c M-r' respectively, will also switch point to
-;; the active q process buffer for direct interaction.
+;; function, `C-c C-s' sends the symbol at point, `C-c C-r' sends
+;; the selected region and `C-c C-b' sends the whole buffer.  If
+;; prefixed with `C-u C-u', or pressing `C-c M-j' `C-c M-f' `C-c
+;; M-s' `C-c M-r' respectively, will also switch point to the active
+;; q process buffer for direct interaction.
 
 ;; If the source file exists on the same machine as the q process,
 ;; `C-c M-l' can be used to load the file associated with the active
@@ -455,8 +456,8 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (q-eval-line)
   (forward-line))
 
-(defun q-eval-symbol-at-point ()
-  "Evaluate current symbol."
+(defun q-eval-symbol ()
+  "Send the symbol at point to the inferior q[con] process."
   (interactive)
   (let ((symbol (thing-at-point 'symbol)))
     (unless symbol
@@ -540,6 +541,11 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
   (interactive)
   (q-and-go 'q-eval-region))
 
+(defun q-eval-symbol-and-go ()
+  "Send current symbol to the inferior q[con] process and show active q buffer."
+  (interactive)
+  (q-and-go 'q-eval-symbol))
+
 (defun q-load-file ()
   "Load current buffer's file into the inferior q[con] process after saving."
   (interactive)
@@ -568,6 +574,8 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     (define-key map "\C-c\M-f"    'q-eval-function-and-go)
     (define-key map "\C-c\C-r"    'q-eval-region)
     (define-key map "\C-c\M-r"    'q-eval-region-and-go)
+    (define-key map "\C-c\C-s"    'q-eval-symbol)
+    (define-key map "\C-c\M-s"    'q-eval-symbol-and-go)
     (define-key map "\C-c\C-b"    'q-eval-buffer)
     (define-key map "\C-c\M-l"    'q-load-file)
     (define-key map (kbd "C-c M-RET") 'q-activate-buffer)
@@ -589,6 +597,8 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     ["Eval Function and Go"  q-eval-function-and-go t]
     ["Eval Region"           q-eval-region t]
     ["Eval Region and Go"    q-eval-region-and-go t]
+    ["Eval Symbol"           q-eval-symbol t]
+    ["Eval Symbol and Go"    q-eval-symbol-and-go t]
     ["Eval Buffer"           q-eval-buffer t]
     ["Load File"             q-load-file t]
     "---"
