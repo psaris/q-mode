@@ -1412,8 +1412,7 @@ This function never triggers I/O; it only reads from cached data."
         (while (progn (setq pos (point))
                       (backward-up-list)
                       (/= (point) pos))
-          (setq n (+ n 1))
-          n)
+          (setq n (+ n 1)))
       (scan-error n))))
 
 (provide 'q-mode)
