@@ -301,7 +301,7 @@ Prompt with a list of live Q Shell buffers if called interactively."
    (unless (equal q-init-port 0) (format " -p %s" q-init-port))
    (unless (equal q-init-slaves 0) (format " -s %s" q-init-slaves))
    (unless (equal q-init-workspace 0) (format " -w %s" q-init-workspace))
-   (unless (not q-init-garbage-collect) " -g 1")))
+   (when q-init-garbage-collect " -g 1")))
 
 (defun q-qcon-default-args ()
   "Build the default qcon command-line argument string from `q-qcon-*' variables."
