@@ -41,7 +41,9 @@
 ;;
 ;;  - signature help (eldoc),
 ;;
-;;  - definition/reference navigation (xref).
+;;  - definition/reference navigation (xref),
+;;
+;;  - code folding (hideshow).
 ;;
 ;; To load `q-mode' on-demand, instead of at startup, add this to your
 ;; initialization file
@@ -95,8 +97,12 @@
 ;; Quick access to variable and function definitions can be obtained
 ;; using the `imenu' binding `M-g i'.  Completion is available via
 ;; `completion-at-point' (usually `M-TAB').  Eldoc displays signatures
-;; while you type, and xref provides `M-.' for definitions and `M-?'
-;; for references.
+;; while you type, and xref provides `M-.' for definitions, `M-?'
+;; for references, and `C-M-.' for apropos search across all known
+;; identifiers in the project.
+
+;; Code folding is available via `hs-minor-mode'.  Once enabled, use
+;; the standard hideshow bindings to fold and unfold {} blocks.
 
 
 ;; `M-x customize-group' can be used to customize the `q' group.
@@ -1414,7 +1420,19 @@ INDEX-KEY is a plist keyword such as :definition-index or :reference-index."
 
   (cl-defmethod xref-backend-references ((_backend (eql q)) identifier)
     (mapcar #'q--entry->xref
-            (q--entries-for-identifier identifier :reference-index))))
+            (q--entries-for-identifier identifier :reference-index)))
+
+  (cl-defmethod xref-backend-apropos ((_backend (eql q)) pattern)
+    (q--ensure-project-scan-cache)
+    (let ((index (q--project-plist-get :definition-index))
+          results)
+      (when (hash-table-p index)
+        (maphash (lambda (name entries)
+                   (when (string-match-p pattern name)
+                     (dolist (entry entries)
+                       (push (q--entry->xref entry) results))))
+                 index))
+      results)))
 
 ;; eldoc
 

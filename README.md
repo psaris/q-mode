@@ -14,7 +14,7 @@ Some of its major features include:
 - completion at point (CAPF),
 - signature help (eldoc),
 - definition/reference navigation (xref),
-- code folding (hs-minor-mode).
+- code folding (hideshow).
 
 ## Installation
 
@@ -77,8 +77,13 @@ buffer.
 Quick access to variable and function definitions can be obtained
 using the `imenu` binding `M-g i`. Completion is available via
 `completion-at-point` (usually `M-TAB`). Eldoc displays signatures
-while you type, and xref provides `M-.` for definitions and `M-?`
-for references. Folding is available with `M-x hs-minor-mode`.
+while you type, and xref provides `M-.` for definitions, `M-?`
+for references, and `C-M-.` for apropos search across all known
+identifiers in the project.
+
+Code folding is available via `hs-minor-mode`.  Once enabled, use
+the standard hideshow bindings to fold and unfold {} blocks.
+
 ## Customization
 
 `M-x customize-group` can be used to customize the `q` group.
