@@ -684,6 +684,49 @@ The order of operations matters and must not be rearranged."
           "\\_>")
   "Builtin .z functions/constants regex defined for q mode.")
 
+(defconst q-builtin-dot-Q-word-list
+  '(".Q.a" ".Q.A" ".Q.b6" ".Q.chk" ".Q.cn" ".Q.def" ".Q.dpft" ".Q.dsftg"
+    ".Q.en" ".Q.ens" ".Q.f" ".Q.fc" ".Q.fmt" ".Q.fp" ".Q.fqk" ".Q.fs"
+    ".Q.fsn" ".Q.ft" ".Q.fu" ".Q.gc" ".Q.hdpf" ".Q.hg" ".Q.hp" ".Q.id"
+    ".Q.j10" ".Q.j12" ".Q.k" ".Q.l" ".Q.n" ".Q.nA" ".Q.pd" ".Q.pf"
+    ".Q.pn" ".Q.pt" ".Q.pv" ".Q.pw" ".Q.qp" ".Q.qt" ".Q.res" ".Q.s"
+    ".Q.s1" ".Q.s2" ".Q.sbt" ".Q.sha" ".Q.t" ".Q.te" ".Q.trp" ".Q.ts"
+    ".Q.ty" ".Q.u" ".Q.v" ".Q.vp" ".Q.w" ".Q.x10" ".Q.x12" ".Q.xf"
+    ".Q.xR" ".Q.xs")
+  "Builtin .Q functions/constants defined for q mode.")
+
+(defconst q-builtin-dot-Q-words
+  (concat "\\_<"
+          "\\(?:[_]\\)?"                ; leading _ is not a symbol
+          (regexp-opt q-builtin-dot-Q-word-list t)
+          "\\_>")
+  "Builtin .Q functions/constants regex defined for q mode.")
+
+(defconst q-builtin-dot-h-word-list
+  '(".h.hn" ".h.hp" ".h.hr" ".h.ht" ".h.hta" ".h.htac" ".h.htc" ".h.html"
+    ".h.http" ".h.hu" ".h.hug" ".h.hy" ".h.jx" ".h.pre" ".h.ta" ".h.td"
+    ".h.text" ".h.th" ".h.tr" ".h.tx" ".h.ty" ".h.val" ".h.xd" ".h.xmp"
+    ".h.xs" ".h.xt")
+  "Builtin .h functions/constants defined for q mode.")
+
+(defconst q-builtin-dot-h-words
+  (concat "\\_<"
+          "\\(?:[_]\\)?"                ; leading _ is not a symbol
+          (regexp-opt q-builtin-dot-h-word-list t)
+          "\\_>")
+  "Builtin .h functions/constants regex defined for q mode.")
+
+(defconst q-builtin-dot-j-word-list
+  '(".j.j" ".j.jd" ".j.k")
+  "Builtin .j functions/constants defined for q mode.")
+
+(defconst q-builtin-dot-j-words
+  (concat "\\_<"
+          "\\(?:[_]\\)?"                ; leading _ is not a symbol
+          (regexp-opt q-builtin-dot-j-word-list t)
+          "\\_>")
+  "Builtin .j functions/constants regex defined for q mode.")
+
 (defconst q-font-lock-keywords ;; keywords
   (list
    ;; q single-letter system commands keep comments
@@ -704,6 +747,9 @@ The order of operations matters and must not be rearranged."
            '("\\b[0-2]:" . font-lock-builtin-face)         ; IO/IPC
            (list q-builtin-words 1 'font-lock-builtin-face nil) ; q.k
            (list q-builtin-dot-z-words 1 'font-lock-builtin-face nil) ; .z.*
+           (list q-builtin-dot-Q-words 1 'font-lock-builtin-face nil) ; .Q.*
+           (list q-builtin-dot-h-words 1 'font-lock-builtin-face nil) ; .h.*
+           (list q-builtin-dot-j-words 1 'font-lock-builtin-face nil) ; .j.*
            ))
   "More highlighting expressions for q mode.")
 
@@ -850,7 +896,9 @@ current buffer by checking a temporary file."
         (process-send-eof q--flymake-proc)))))
 
 (defconst q-capf-core-words
-  (append q-keyword-list q-builtin-word-list q-builtin-dot-z-word-list)
+  (append q-keyword-list q-builtin-word-list q-builtin-dot-z-word-list
+          q-builtin-dot-Q-word-list q-builtin-dot-h-word-list
+          q-builtin-dot-j-word-list)
   "Core words used for q completion candidates.")
 
 ;; Project scan caches
