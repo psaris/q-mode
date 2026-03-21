@@ -84,6 +84,11 @@ identifiers in the project.
 Code folding is available via `hs-minor-mode`.  Once enabled, use
 the standard hideshow bindings to fold and unfold {} blocks.
 
+`which-function-mode` is supported and will display the name of the
+enclosing function in the mode line as you move point.  Enable it
+globally with (which-function-mode 1) in your initialization file,
+or per-buffer with M-x which-function-mode.
+
 ## Customization
 
 `M-x customize-group` can be used to customize the `q` group.

@@ -104,6 +104,11 @@
 ;; Code folding is available via `hs-minor-mode'.  Once enabled, use
 ;; the standard hideshow bindings to fold and unfold {} blocks.
 
+;; `which-function-mode' is supported and will display the name of the
+;; enclosing function in the mode line as you move point.  Enable it
+;; globally with (which-function-mode 1) in your initialization file,
+;; or per-buffer with M-x which-function-mode.
+
 
 ;; `M-x customize-group' can be used to customize the `q' group.
 ;; Specifically, the `q-program' and `q-qcon-program' variables can be
@@ -1475,6 +1480,13 @@ This function never triggers I/O; it only reads from cached data."
   (add-to-list 'hs-special-modes-alist
                (list 'q-mode "{" "}" "/[ \t]*" nil nil)))
 
+(defun q-current-defun ()
+  "Return the name of the q function enclosing point, or nil.
+Used by `which-function-mode' and `add-log-current-defun-function'."
+  (save-excursion
+    (when (re-search-backward (concat "^" q-function-regex) nil t)
+      (match-string-no-properties 1))))
+
 ;;;###autoload
 (define-derived-mode q-mode prog-mode "Q-Script"
   "Major mode for editing q language files."
@@ -1487,6 +1499,8 @@ This function never triggers I/O; it only reads from cached data."
   (setq-local indent-line-function 'q-indent-line)
   ;; enable imenu
   (setq-local imenu-generic-expression q-imenu-generic-expression)
+  ;; which-function-mode
+  (setq-local add-log-current-defun-function #'q-current-defun)
   ;; editor integrations
   (add-hook 'completion-at-point-functions #'q-completion-at-point nil t)
   (add-hook 'eldoc-documentation-functions #'q-eldoc-function nil t)
