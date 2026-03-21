@@ -324,9 +324,11 @@ Prompt with a list of live Q Shell buffers if called interactively."
 
 (defun q-shell-name (server port)
   "Build name of q-shell based on SERVER and PORT."
-  (concat "q-"
-          (if (equal server "") "localhost" server)
-          (unless (equal port "") (format ":%s" port))))
+  (if (and (equal server "") (equal port ""))
+      "q"
+    (concat "q-"
+            (if (equal server "") "localhost" server)
+            (unless (equal port "") (format ":%s" port)))))
 
 ;;;###autoload
 (defun q (&optional host user args)
