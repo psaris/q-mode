@@ -911,10 +911,13 @@ current buffer by checking a temporary file."
         (process-send-eof q--flymake-proc)))))
 
 (defconst q-capf-core-words
-  (append q-keyword-list q-builtin-word-list q-builtin-dot-z-word-list
-          q-builtin-dot-Q-word-list q-builtin-dot-h-word-list
-          q-builtin-dot-j-word-list)
-  "Core words used for q completion candidates.")
+  (let ((ht (make-hash-table :test #'equal)))
+    (dolist (w (append q-keyword-list q-builtin-word-list q-builtin-dot-z-word-list
+                       q-builtin-dot-Q-word-list q-builtin-dot-h-word-list
+                       q-builtin-dot-j-word-list))
+      (puthash w t ht))
+    ht)
+  "Core words used for q completion candidates (hash table for O(1) lookup).")
 
 ;; Project scan caches
 ;;
@@ -1263,10 +1266,13 @@ on repeated rebuilds."
                           (plist-get artifacts :references))
                  (setq symbols (append symbols (plist-get artifacts :symbols))))
                file-index))
-    (q--project-plist-put
-     :definition-index      def-index
-     :reference-index       ref-index
-     :completion-candidates (delete-dups (append q-capf-core-words symbols)))))
+    (let ((candidates (make-hash-table :test #'equal :size (hash-table-count q-capf-core-words))))
+      (maphash (lambda (k _) (puthash k t candidates)) q-capf-core-words)
+      (dolist (sym symbols) (puthash sym t candidates))
+      (q--project-plist-put
+       :definition-index      def-index
+       :reference-index       ref-index
+       :completion-candidates candidates))))
 
 ;; full and incremental rescans
 
