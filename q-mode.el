@@ -850,7 +850,8 @@ current buffer by checking a temporary file."
     (kill-process q--flymake-proc))
 
   (let ((source (current-buffer))
-        (file (buffer-file-name)))
+        (file (buffer-file-name))
+        (default-directory (file-name-directory (buffer-file-name))))
     (cond
      ((not file)
       (funcall report-fn nil))
