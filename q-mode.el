@@ -979,7 +979,7 @@ file path.  Returns nil for unsaved buffers with no project."
 
 (defun q--project-plist-put (&rest kvs)
   "Set key-value pairs KVS in the shared cache plist for the current project."
-  (let* ((key (q--project-key))
+  (let* ((key   (q--project-key))
          (plist (gethash key q--project-cache)))
     (while kvs
       (setq plist (plist-put plist (pop kvs) (pop kvs))))
@@ -1023,20 +1023,23 @@ file path.  Returns nil for unsaved buffers with no project."
           (push resolved targets))))
     (delete-dups targets)))
 
+(defun q--with-file-content (file fn)
+  "Call FN in a buffer containing FILE's content.
+If FILE is being visited and is modified, uses the live buffer.
+Otherwise reads from disk.  Returns nil if FILE is missing."
+  (let ((buf (find-buffer-visiting file)))
+    (if (and buf (buffer-modified-p buf))
+        (with-current-buffer buf (save-excursion (funcall fn)))
+      (with-temp-buffer
+        (condition-case nil
+            (progn (insert-file-contents file) (funcall fn))
+          (file-missing nil))))))
+
 (defun q--load-targets-in-file (file)
   "Return loaded file targets referenced by FILE.
 Uses a visiting buffer when modified; otherwise reads from disk."
-  (let ((buf (find-buffer-visiting file)))
-    (if (and buf (buffer-modified-p buf))
-        (with-current-buffer buf
-          (save-excursion
-            (q--load-targets-in-buffer file)))
-      (with-temp-buffer
-        (condition-case nil
-            (progn
-              (insert-file-contents file)
-              (q--load-targets-in-buffer file))
-          (file-missing nil))))))
+  (q--with-file-content file
+    (lambda () (q--load-targets-in-buffer file))))
 
 (defun q--expand-loaded-files (roots)
   "Return ROOTS plus recursively loaded files from \\l commands."
@@ -1228,20 +1231,13 @@ Returns nil when SUMMARY does not look like a function definition."
   "Return scan artifacts for FILE or the current buffer when FILE is nil."
   (if (not file)
       (q--scan-source-in-current-buffer)
-    (let ((buf (find-buffer-visiting file)))
-      (if (and buf (buffer-modified-p buf))
-          (with-current-buffer buf
-            (q--scan-source-in-current-buffer))
-        (with-temp-buffer
-          (condition-case nil
-              (progn
-                (insert-file-contents file)
-                (set-syntax-table q-mode-syntax-table)
-                (q--scan-source-in-current-buffer file))
-            (file-missing
-             (list :definitions (make-hash-table :test #'equal)
-                   :references (make-hash-table :test #'equal)
-                   :symbols nil))))))))
+    (or (q--with-file-content file
+          (lambda ()
+            (set-syntax-table q-mode-syntax-table)
+            (q--scan-source-in-current-buffer file)))
+        (list :definitions (make-hash-table :test #'equal)
+              :references  (make-hash-table :test #'equal)
+              :symbols     nil))))
 
 ;; merged index rebuild (from per-file sub-index)
 
