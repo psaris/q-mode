@@ -1397,6 +1397,25 @@ Intended for use in `kill-buffer-hook' to avoid unbounded cache growth."
   (when-let (kind (q--capf-kind candidate))
     (concat " <" (symbol-name kind) ">")))
 
+(defun q--capf-doc-buffer (candidate)
+  "Return a documentation buffer for completion CANDIDATE.
+Used by Company and Corfu to populate the popup doc window (C-h).
+Shows the function signature, doc comment, and source location."
+  (let ((entry (car (q--entries-for-identifier candidate :definition-index))))
+    (when entry
+      (let ((sig      (plist-get entry :signature))
+            (doc      (plist-get entry :doc))
+            (file     (plist-get entry :file))
+            (line     (plist-get entry :line))
+            (buffer   (plist-get entry :buffer)))
+        (with-current-buffer (get-buffer-create " *q-doc*")
+          (erase-buffer)
+          (when sig  (insert sig "\n\n"))
+          (when doc  (insert doc "\n\n"))
+          (cond (file   (insert (format "%s:%d" (file-name-nondirectory file) line)))
+                (buffer (insert (format "%s" (buffer-name buffer)))))
+          (current-buffer))))))
+
 (defun q--complete-with-action (string predicate action)
   "Perform q completion according to ACTION.
 STRING and PREDICATE are used as in `try-completion'."
@@ -1412,9 +1431,10 @@ STRING and PREDICATE are used as in `try-completion'."
     (when bounds
       (list (car bounds) (cdr bounds)
             #'q--complete-with-action
-            :exclusive      'no
+            :exclusive           'no
             :annotation-function #'q--capf-annotation
-            :company-kind   #'q--capf-kind))))
+            :company-kind        #'q--capf-kind
+            :company-doc-buffer  #'q--capf-doc-buffer))))
 
 ;; xref backend
 
