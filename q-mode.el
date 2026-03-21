@@ -1529,7 +1529,7 @@ This function never triggers I/O; it only reads from cached data."
 (define-derived-mode q-shell-mode comint-mode "Q-Shell"
   "Major mode for interacting with a q interpreter."
   :syntax-table q-mode-syntax-table
-  (add-hook (make-local-variable 'comint-output-filter-functions) 'comint-strip-ctrl-m)
+  (add-hook 'comint-output-filter-functions 'comint-strip-ctrl-m nil t)
   (setq-local comint-prompt-regexp "^\\(q)+\\|[^:]*:[0-9]+>\\)")
   (setq-local font-lock-defaults q-font-lock-defaults)
   (setq-local syntax-propertize-function #'q-syntax-propertize)
