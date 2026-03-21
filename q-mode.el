@@ -808,7 +808,7 @@ Syntactic context (strings, comments) is handled by
     (modify-syntax-entry ?\+ ".  " table) ; treat + as punctuation
     (modify-syntax-entry ?\, ".  " table) ; treat , as punctuation
     (modify-syntax-entry ?\- ".  " table) ; treat - as punctuation
-    (modify-syntax-entry ?\= ".  " table) ; treat < as punctuation
+    (modify-syntax-entry ?\= ".  " table) ; treat = as punctuation
     (modify-syntax-entry ?\* ".  " table) ; treat * as punctuation
     (modify-syntax-entry ?\< ".  " table) ; treat < as punctuation
     (modify-syntax-entry ?\> ".  " table) ; treat > as punctuation
