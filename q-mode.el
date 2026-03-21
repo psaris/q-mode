@@ -727,13 +727,10 @@ The order of operations matters and must not be rearranged."
 
 (defconst q-font-lock-defaults
   '((q-font-lock-keywords q-font-lock-keywords-1 q-font-lock-keywords-2)
-    nil nil nil nil
-    (font-lock-syntactic-keywords . (("^\\(\/\\)\\s-*$"     1 "< b") ; begin multiline comment /
-                                     ("^\\(\\\\\\)\\s-*$"   1 "> b") ; end multiline comment   \
-                                     ("\\(?:^\\|[ \t]\\)\\(\/\\)"    1 "<  ") ; comments start flush left or after white space
-                                     ("\\(\"\\)\\(?:[^\"\\\\]\\|\\\\.\\)*?\\(\"\\)" (1 "\"") (2 "\""))
-                                     )))
-  "List of font lock keywords to properly highlight q syntax.")
+    nil nil nil nil)
+  "Font lock defaults for q mode.
+Syntactic context (strings, comments) is handled by
+`q-syntax-propertize', not by font-lock-syntactic-keywords.")
 
 
 ;; syntax table
@@ -761,6 +758,25 @@ The order of operations matters and must not be rearranged."
     (modify-syntax-entry ?\` ".  " table) ; treat ` as punctuation
     table)
   "Syntax table for `q-mode'.")
+
+(defun q-syntax-propertize (start end)
+  "Apply syntax properties for q strings and comments between START and END."
+  (funcall
+   (syntax-propertize-rules
+    ;; bare / line opens a block comment
+    ("^\\(/\\)[ \t]*$"
+     (1 (unless (nth 4 (syntax-ppss)) (string-to-syntax "< b"))))
+    ;; bare \ line closes a block comment
+    ("^\\(\\\\\\)[ \t]*$"
+     (1 (when (nth 4 (syntax-ppss)) (string-to-syntax "> b"))))
+    ;; " opens or closes a string, honouring \" escapes
+    ("\\(\"\\)\\(?:[^\"\\\\]\\|\\\\.\\)*\\(\"\\)?"
+     (1 (string-to-syntax "\""))
+     (2 (string-to-syntax "\"")))
+    ;; / after whitespace or BOL starts a line comment, not inside a string
+    ("\\(?:^\\|[ \t]\\)\\(/\\)"
+     (1 (unless (nth 3 (syntax-ppss)) (string-to-syntax "<")))))
+   start end))
 
 
 ;; flymake
@@ -1016,7 +1032,7 @@ eldoc or CAPF invocation."
 (defun q--scan-state-stale-p (&optional exclude-file)
   "Return non-nil if any file in the stored scan-state has a changed mtime.
 Detects out-of-band disk changes such as those made by git pull.
-EXCLUDE-FILE, if provided, is skipped — its mtime change is expected
+EXCLUDE-FILE, if provided, is skipped -- its mtime change is expected
 after an in-Emacs save and should not trigger a full rescan."
   (cl-some (lambda (entry)
              (and (not (equal (car entry) exclude-file))
@@ -1354,6 +1370,7 @@ This function never triggers I/O; it only reads from cached data."
   (add-hook (make-local-variable 'comint-output-filter-functions) 'comint-strip-ctrl-m)
   (setq-local comint-prompt-regexp "^\\(q)+\\|[^:]*:[0-9]+>\\)")
   (setq-local font-lock-defaults q-font-lock-defaults)
+  (setq-local syntax-propertize-function #'q-syntax-propertize)
   (setq-local comint-process-echoes nil))
 
 (defconst q-imenu-generic-expression
@@ -1370,6 +1387,7 @@ This function never triggers I/O; it only reads from cached data."
   "Major mode for editing q language files."
   :group 'q
   (setq-local font-lock-defaults q-font-lock-defaults)
+  (setq-local syntax-propertize-function #'q-syntax-propertize)
   (setq-local comment-start q-comment-start)
   (setq-local comment-start-skip "\\(^\\|[ \t]\\)\\(/+[ \t]*\\)")
   (setq-local comment-end "")
