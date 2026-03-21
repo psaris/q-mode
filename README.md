@@ -76,10 +76,11 @@ buffer.
 
 Quick access to variable and function definitions can be obtained
 using the `imenu` binding `M-g i`. Completion is available via
-`completion-at-point` (usually `M-TAB`). Eldoc displays signatures
-while you type, and xref provides `M-.` for definitions, `M-?`
-for references, and `C-M-.` for apropos search across all known
-identifiers in the project.
+`completion-at-point` (usually `M-TAB`).  Candidates are annotated
+with their kind (<function>, <variable>, <keyword>, or <builtin>).
+Eldoc displays signatures while you type, and xref provides `M-.`
+for definitions, `M-?` for references, and `C-M-.` for apropos
+search across all known identifiers in the project.
 
 Code folding is available via `hs-minor-mode`.  Once enabled, use
 the standard hideshow bindings to fold and unfold {} blocks.

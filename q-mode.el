@@ -96,10 +96,11 @@
 
 ;; Quick access to variable and function definitions can be obtained
 ;; using the `imenu' binding `M-g i'.  Completion is available via
-;; `completion-at-point' (usually `M-TAB').  Eldoc displays signatures
-;; while you type, and xref provides `M-.' for definitions, `M-?'
-;; for references, and `C-M-.' for apropos search across all known
-;; identifiers in the project.
+;; `completion-at-point' (usually `M-TAB').  Candidates are annotated
+;; with their kind (<function>, <variable>, <keyword>, or <builtin>).
+;; Eldoc displays signatures while you type, and xref provides `M-.'
+;; for definitions, `M-?' for references, and `C-M-.' for apropos
+;; search across all known identifiers in the project.
 
 ;; Code folding is available via `hs-minor-mode'.  Once enabled, use
 ;; the standard hideshow bindings to fold and unfold {} blocks.
@@ -1363,6 +1364,38 @@ Intended for use in `kill-buffer-hook' to avoid unbounded cache growth."
 
 ;; completion at point
 
+(defconst q--capf-keyword-set
+  (make-hash-table :test #'equal)
+  "Hash set of q keywords for O(1) lookup during completion annotation.")
+
+(defconst q--capf-builtin-set
+  (make-hash-table :test #'equal)
+  "Hash set of q builtins for O(1) lookup during completion annotation.")
+
+;; Populate the hash sets once at load time from the existing word lists.
+;; This gives O(1) membership tests in q--capf-kind rather than O(n) member calls.
+(dolist (w q-keyword-list)
+  (puthash w t q--capf-keyword-set))
+(dolist (w (append q-builtin-word-list q-builtin-dot-z-word-list
+                   q-builtin-dot-Q-word-list q-builtin-dot-h-word-list
+                   q-builtin-dot-j-word-list))
+  (puthash w t q--capf-builtin-set))
+
+(defun q--capf-kind (candidate)
+  "Return a Company completion kind symbol for CANDIDATE."
+  (let ((entry (car (q--entries-for-identifier candidate :definition-index))))
+    (cond
+     (entry                                   (if (plist-get entry :signature)
+                                                  'function
+                                                'variable))
+     ((gethash candidate q--capf-keyword-set) 'keyword)
+     ((gethash candidate q--capf-builtin-set) 'builtin))))
+
+(defun q--capf-annotation (candidate)
+  "Return an annotation string for completion CANDIDATE."
+  (when-let (kind (q--capf-kind candidate))
+    (concat " <" (symbol-name kind) ">")))
+
 (defun q--complete-with-action (string predicate action)
   "Perform q completion according to ACTION.
 STRING and PREDICATE are used as in `try-completion'."
@@ -1378,7 +1411,9 @@ STRING and PREDICATE are used as in `try-completion'."
     (when bounds
       (list (car bounds) (cdr bounds)
             #'q--complete-with-action
-            :exclusive 'no))))
+            :exclusive      'no
+            :annotation-function #'q--capf-annotation
+            :company-kind   #'q--capf-kind))))
 
 ;; xref backend
 
