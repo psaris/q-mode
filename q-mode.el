@@ -1108,17 +1108,35 @@ after an in-Emacs save and should not trigger a full rescan."
         (setq namespace (match-string-no-properties 1)))
       namespace)))
 
-(defun q--make-entry (meta &optional doc file)
-  "Return scanner entry from META with optional DOC and FILE location."
+(defun q--make-entry (meta &optional doc signature file)
+  "Return scanner entry from META with optional DOC, SIGNATURE and FILE location."
   (append (list :summary (plist-get meta :summary))
-          (when doc
-            (list :doc doc))
+          (when signature (list :signature signature))
+          (when doc       (list :doc doc))
           (if file
               (list :file file
                     :line (plist-get meta :line)
                     :col (plist-get meta :col))
             (list :buffer (current-buffer)
                   :pos (plist-get meta :pos)))))
+
+(defun q--function-signature (name summary)
+  "Return a signature string for NAME from its definition SUMMARY line.
+Parses explicit args from {[a;b;c]...} or infers implicit args by
+checking which of x, y, z are referenced in the function body.
+Returns nil when SUMMARY does not look like a function definition."
+  (when (string-match "{" summary)
+    (let ((args
+           (if (string-match "{\\[\\([^]]*\\)\\]" summary)
+               ;; explicit argument list
+               (split-string (match-string 1 summary) ";" t "[ \t]+")
+             ;; implicit: infer from x, y, z references in the body
+             (let ((body (substring summary (string-match "{" summary))))
+               (cl-remove-if-not
+                (lambda (arg)
+                  (string-match (concat "\\_<" arg "\\_>") body))
+                '("x" "y" "z"))))))
+      (format "%s[%s]" name (string-join args ";")))))
 
 (defun q--definition-doc (pos)
   "Return doc text for definition at POS from inline or preceding comments."
@@ -1164,7 +1182,8 @@ after an in-Emacs save and should not trigger a full rescan."
                        (canonical (q--canonicalize-name namespace name))
                        (meta (make-meta def-pos))
                        (doc (q--definition-doc def-pos))
-                       (entry (q--make-entry meta doc file)))
+                       (signature (q--function-signature name summary))
+                       (entry (q--make-entry meta doc signature file)))
                   (puthash canonical (cons entry (gethash canonical def-index)) def-index)
                   (push canonical symbols)))
               (while (re-search-forward q--identifier-token-regex line-end t)
@@ -1400,14 +1419,22 @@ INDEX-KEY is a plist keyword such as :definition-index or :reference-index."
 ;; eldoc
 
 (defun q-eldoc-function (&rest _ignored)
-  "Return doc text or summary for the resolved definition at point.
+  "Return a signature and doc string for the definition at point.
+Combines the parsed signature (e.g. fname[a;b;c]) with any inline doc
+comment, matching the convention used by most language modes.
+For variable definitions with no signature, falls back to the raw
+definition line so the value remains visible without jumping to it.
 This function never triggers I/O; it only reads from cached data."
   (let* ((identifier (q--identifier-at-point))
          (entry (and identifier
                      (car (q--entries-for-identifier identifier :definition-index)))))
     (when entry
-      (or (plist-get entry :doc)
-          (plist-get entry :summary)))))
+      (let ((sig (plist-get entry :signature))
+            (doc (plist-get entry :doc)))
+        (cond ((and sig doc) (concat sig "  " doc))
+              (sig           sig)
+              (doc           doc)
+              (t             (plist-get entry :summary)))))))
 
 ;; modes
 
