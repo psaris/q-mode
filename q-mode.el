@@ -1293,15 +1293,16 @@ on repeated rebuilds."
 
 ;; full and incremental rescans
 
-(defun q--do-full-rescan (buf)
+(defun q--do-full-rescan (buf reason)
   "Scan every file in the project for BUF and rebuild the shared cache.
-Used on first load, after a git pull, or when the file list changes.
-Emits a message with timing when scanning a multi-file project."
+REASON is a short string describing why the rescan was triggered.
+Emits a progress message before scanning and a timing message after."
   (when (buffer-live-p buf)
     (with-current-buffer buf
       (let* ((files (q--ensure-project-file-list))
              (state (q--compute-scan-cache-state files)))
         (unless (equal state (q--project-plist-get :scan-state))
+          (message "q: %s, rescanning..." reason)
           (let ((file-index (make-hash-table :test #'equal))
                 (t0 (float-time)))
             (dolist (file (or files (list nil)))
@@ -1309,14 +1310,14 @@ Emits a message with timing when scanning a multi-file project."
                 (puthash (or file :buffer) artifacts file-index)))
             (q--project-plist-put :scan-state state
                                    :file-index file-index)
+            (message "q: building indexes...")
             (q--rebuild-merged-indexes)
-            ;; Only report when there are real project files to scan.
-            ;; Suppress the message for the single-unsaved-buffer fallback.
-            (when files
-              (message "q: scanned %d file%s in %.2fs"
-                       (length files)
-                       (if (= (length files) 1) "" "s")
-                       (- (float-time) t0)))))))))
+            (let* ((elapsed (- (float-time) t0))
+                   (what (if files
+                              (format "%d file%s" (length files)
+                                      (if (= (length files) 1) "" "s"))
+                            "current buffer")))
+              (message "q: scanned %s in %.2fs" what elapsed))))))))
 
 (defun q--do-incremental-rescan (buf file)
   "Re-scan only FILE in the shared cache for BUF, then rebuild merged indexes.
@@ -1327,7 +1328,7 @@ Falls back to a full rescan when no per-file sub-index exists yet."
       (let* ((file-index (q--project-plist-get :file-index))
              (key        (or file :buffer)))
         (if (not (hash-table-p file-index))
-            (q--do-full-rescan buf)
+            (q--do-full-rescan buf "no scan cache")
           (let* ((new-mtime  (and file (q--file-mtime file)))
                  (old-entry  (gethash key file-index))
                  (old-mtime  (and old-entry (plist-get old-entry :mtime))))
@@ -1360,9 +1361,7 @@ check since its mtime change is expected.  Debounces any pending timer."
                  q-rescan-idle-delay nil
                  (lambda ()
                    (if (q--scan-state-stale-p file)
-                       (progn
-                         (message "q: project files changed, rescanning...")
-                         (q--do-full-rescan buf))
+                       (q--do-full-rescan buf "project files changed")
                      (q--do-incremental-rescan buf file)))))))
 
 (defun q--ensure-project-scan-cache ()
@@ -1372,7 +1371,7 @@ data immediately.  Subsequent calls return instantly; the idle timer
 (triggered by save/revert hooks) keeps the cache fresh."
   (when (and (q--project-key)
              (null (q--project-plist-get :scan-state)))
-    (q--do-full-rescan (current-buffer))))
+    (q--do-full-rescan (current-buffer) "initial scan")))
 
 (defun q--maybe-evict-project-cache ()
   "Remove the shared cache entry when no more `q-mode' buffers exist.
