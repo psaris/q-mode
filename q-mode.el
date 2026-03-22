@@ -802,9 +802,7 @@ Syntactic context (strings, comments) is handled by
   (let ((table (make-syntax-table)))
     (modify-syntax-entry ?\" ".  " table) ; treat " as punctuation
     (modify-syntax-entry ?\/ ".  " table) ; treat / as punctuation
-    (modify-syntax-entry ?\n ">  " table) ; comments are ended by a new line
-    (modify-syntax-entry ?\r ">  " table) ; comments are ended by a new line
-    (modify-syntax-entry ?\. "_  " table) ; treat _ as symbol
+    (modify-syntax-entry ?\. "_  " table) ; treat . as symbol
     (modify-syntax-entry ?\_ "_  " table) ; treat _ as symbol
     (modify-syntax-entry ?\\ ".  " table) ; treat \ as punctuation
     (modify-syntax-entry ?\$ ".  " table) ; treat $ as punctuation
@@ -836,9 +834,12 @@ Syntactic context (strings, comments) is handled by
     ("\\(\"\\)\\(?:[^\"\\\\]\\|\\\\.\\)*\\(\"\\)?"
      (1 (string-to-syntax "\""))
      (2 (string-to-syntax "\"")))
-    ;; / after whitespace or BOL starts a line comment, not inside a string
-    ("\\(?:^\\|[ \t]\\)\\(/\\)"
-     (1 (unless (nth 3 (syntax-ppss)) (string-to-syntax "<")))))
+    ;; / after whitespace or BOL starts a line comment, not inside a string;
+    ;; also mark the terminating newline as comment-ender since \n has no
+    ;; comment-ender syntax in the table (handled entirely via text properties)
+    ("\\(?:^\\|[ \t]\\)\\(/\\)\\([^\n]*\\)\\(\n\\)"
+     (1 (unless (nth 3 (syntax-ppss)) (string-to-syntax "<")))
+     (3 (unless (nth 3 (syntax-ppss)) (string-to-syntax ">")))))
    start end))
 
 
@@ -1543,6 +1544,20 @@ This function never triggers I/O; it only reads from cached data."
   (add-to-list 'hs-special-modes-alist
                (list 'q-mode "{" "}" "/[ \t]*" nil nil)))
 
+(defun q-beginning-of-defun (&optional arg)
+  "Move backward to the beginning of a q function definition.
+With ARG, do it that many times."
+  (re-search-backward (concat "^" q-function-regex) nil 'move (or arg 1)))
+
+(defun q-end-of-defun ()
+  "Move forward to the end of a q function definition.
+For brace-delimited functions, finds the closing } matching the opening {.
+For point-free definitions with no braces, moves to end of line."
+  (goto-char (line-beginning-position))
+  (if (re-search-forward "{" (line-end-position) t)
+      (progn (backward-char) (forward-sexp))
+    (end-of-line)))
+
 (defun q-current-defun ()
   "Return the name of the q function enclosing point, or nil.
 Used by `which-function-mode' and `add-log-current-defun-function'."
@@ -1566,6 +1581,8 @@ Used by `which-function-mode' and `add-log-current-defun-function'."
   (setq-local imenu-generic-expression q-imenu-generic-expression)
   ;; which-function-mode
   (setq-local add-log-current-defun-function #'q-current-defun)
+  (setq-local beginning-of-defun-function #'q-beginning-of-defun)
+  (setq-local end-of-defun-function #'q-end-of-defun)
   ;; editor integrations
   (add-hook 'completion-at-point-functions #'q-completion-at-point nil t)
   (add-hook 'eldoc-documentation-functions #'q-eldoc-function nil t)
