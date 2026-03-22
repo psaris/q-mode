@@ -142,6 +142,7 @@
 
 (require 'cl-lib)
 (require 'comint)
+(require 'auth-source nil t)
 (require 'hideshow nil t)
 (require 'project nil t)
 (require 'xref nil t)
@@ -271,7 +272,11 @@ disk changes (e.g. from git pull) until Emacs has been idle this long."
   :group 'q-qcon)
 
 (defcustom q-qcon-password ""
-  "Password for remote q server."
+  "Password for remote q server.
+If empty, `auth-source-search' is consulted instead.
+Warning: the `:safe' predicate means this value is accepted without
+prompting from `.dir-locals.el', which risks exposing credentials if
+that file is committed to version control."
   :safe 'stringp
   :type 'string
   :group 'q-qcon)
@@ -320,10 +325,22 @@ Prompt with a list of live Q Shell buffers if called interactively."
    (unless (equal q-init-workspace 0) (format " -w %s" q-init-workspace))
    (when q-init-garbage-collect " -g 1")))
 
+(defun q--qcon-password ()
+  "Return the qcon password from `q-qcon-password'.
+Fall back to `auth-source-search' if unset."
+  (if (not (equal q-qcon-password ""))
+      q-qcon-password
+    (when (featurep 'auth-source)
+      (let ((creds (car (auth-source-search :host q-qcon-server
+                                            :user q-qcon-user
+                                            :max 1))))
+        (when creds (auth-info-password creds))))))
+
 (defun q-qcon-default-args ()
   "Build the default qcon command-line argument string from `q-qcon-*' variables."
   (concat (format "%s:%s" q-qcon-server q-qcon-port)
-          (unless (equal q-qcon-user "") (format ":%s:%s" q-qcon-user q-qcon-password))))
+          (unless (equal q-qcon-user "")
+            (format ":%s:%s" q-qcon-user (q--qcon-password)))))
 
 (defun q-shell-name (server port)
   "Build name of q-shell based on SERVER and PORT."
