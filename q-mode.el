@@ -178,7 +178,10 @@ each level is indented by this amount."
   :group 'q)
 
 (defcustom q-comment-start "/"
-  "String to insert to start a new comment (some prefer a double forward slash)."
+  "String to insert to start a new comment (some prefer a double forward slash).
+Note: this only affects comment insertion and recognition by commands such
+as `comment-region' and `comment-dwim'.  Syntax highlighting and sexp
+navigation always treat a bare / as the comment delimiter."
   :safe 'stringp
   :type 'string
   :group 'q)
@@ -1554,7 +1557,9 @@ Used by `which-function-mode' and `add-log-current-defun-function'."
   (setq-local font-lock-defaults q-font-lock-defaults)
   (setq-local syntax-propertize-function #'q-syntax-propertize)
   (setq-local comment-start q-comment-start)
-  (setq-local comment-start-skip "\\(^\\|[ \t]\\)\\(/+[ \t]*\\)")
+  (setq-local comment-start-skip (concat "\\(^\\|[ \t]\\)\\("
+                                         (regexp-quote q-comment-start)
+                                         "+[ \t]*\\)"))
   (setq-local comment-end "")
   (setq-local indent-line-function 'q-indent-line)
   ;; enable imenu
