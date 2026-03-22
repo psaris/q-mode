@@ -1294,8 +1294,9 @@ on repeated rebuilds."
 ;; full and incremental rescans
 
 (defun q--do-full-rescan (buf reason)
-  "Scan every file in the project for BUF and rebuild the shared cache.
+  "Scan files in the project for BUF whose mtime has changed, then rebuild.
 REASON is a short string describing why the rescan was triggered.
+Files whose mtime is unchanged are reused from the existing cache.
 Emits a progress message before scanning and a timing message after."
   (when (buffer-live-p buf)
     (with-current-buffer buf
@@ -1303,18 +1304,32 @@ Emits a progress message before scanning and a timing message after."
              (state (q--compute-scan-cache-state files)))
         (unless (equal state (q--project-plist-get :scan-state))
           (message "q: %s, rescanning..." reason)
-          (let ((file-index (make-hash-table :test #'equal))
-                (t0 (float-time)))
+          (let* ((old-state (q--project-plist-get :scan-state))
+                 (old-mtimes (make-hash-table :test #'equal))
+                 (old-file-index (q--project-plist-get :file-index))
+                 (file-index (make-hash-table :test #'equal))
+                 (scanned 0)
+                 (t0 (float-time)))
+            (dolist (entry old-state)
+              (puthash (car entry) (cdr entry) old-mtimes))
             (dolist (file (or files (list nil)))
-              (let ((artifacts (q--scan-file-artifacts file)))
-                (puthash (or file :buffer) artifacts file-index)))
+              (let* ((key (or file :buffer))
+                     (new-mtime (and file (q--file-mtime file)))
+                     (old-mtime (and file (gethash file old-mtimes)))
+                     (changed (not (equal old-mtime new-mtime))))
+                (if (and (not changed)
+                         (hash-table-p old-file-index)
+                         (gethash key old-file-index))
+                    (puthash key (gethash key old-file-index) file-index)
+                  (puthash key (q--scan-file-artifacts file) file-index)
+                  (setq scanned (1+ scanned)))))
             (q--project-plist-put :scan-state state
                                    :file-index file-index)
             (message "q: building indexes...")
             (q--rebuild-merged-indexes)
             (let* ((elapsed (- (float-time) t0))
                    (what (if files
-                              (format "%d file%s" (length files)
+                              (format "%d/%d file%s" scanned (length files)
                                       (if (= (length files) 1) "" "s"))
                             "current buffer")))
               (message "q: scanned %s in %.2fs" what elapsed))))))))
