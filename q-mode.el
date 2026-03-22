@@ -793,7 +793,7 @@ The order of operations matters and must not be rearranged."
     nil nil nil nil)
   "Font lock defaults for q mode.
 Syntactic context (strings, comments) is handled by
-`q-syntax-propertize', not by font-lock-syntactic-keywords.")
+`q-syntax-propertize', not by `font-lock-syntactic-keywords'.")
 
 
 ;; syntax table
@@ -1358,7 +1358,7 @@ data immediately.  Subsequent calls return instantly; the idle timer
     (q--do-full-rescan (current-buffer))))
 
 (defun q--maybe-evict-project-cache ()
-  "Remove the shared cache entry when no more q-mode buffers exist.
+  "Remove the shared cache entry when no more `q-mode' buffers exist.
 Intended for use in `kill-buffer-hook' to avoid unbounded cache growth."
   (let ((key (q--project-key)))
     (when key
@@ -1407,7 +1407,7 @@ Intended for use in `kill-buffer-hook' to avoid unbounded cache growth."
 
 (defun q--capf-doc-buffer (candidate)
   "Return a documentation buffer for completion CANDIDATE.
-Used by Company and Corfu to populate the popup doc window (C-h).
+Used by Company and Corfu to populate the popup doc window (`C-h').
 Shows the function signature, doc comment, and source location."
   (let ((entry (car (q--entries-for-identifier candidate :definition-index))))
     (when entry
