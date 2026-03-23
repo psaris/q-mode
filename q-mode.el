@@ -963,8 +963,6 @@ current buffer by checking a temporary file."
 ;; Per-buffer state: only the idle timer is buffer-local; all scan data
 ;; lives in the shared project store below.
 
-(defvar-local q--rescan-idle-timer nil
-  "Pending idle timer for the next project rescan.")
 
 ;; Shared project store: project-root -> plist
 ;;
@@ -977,6 +975,7 @@ current buffer by checking a temporary file."
 ;;   :scan-state              list of (file . mtime) pairs
 ;;   :file-list               list of expanded q source files
 ;;   :file-list-sentinel      (project-key buffer-file-name) for cache validity
+;;   :rescan-timer            pending idle timer (shared across project buffers)
 
 (defvar q--project-cache (make-hash-table :test #'equal)
   "Global map from project key to shared scan cache plist.
@@ -1373,18 +1372,20 @@ Falls back to a full rescan when no per-file sub-index exists yet."
 Promotes to a full rescan when out-of-band disk changes are detected --
 e.g. after git pull; otherwise performs a cheaper incremental rescan of
 the saved file only.  The saved file is excluded from the staleness
-check since its mtime change is expected.  Debounces any pending timer."
+check since its mtime change is expected.  Debounces any pending timer.
+The timer is stored in the project cache so only one fires per project."
   (let ((buf  (current-buffer))
         (file (buffer-file-name)))
-    (when (timerp q--rescan-idle-timer)
-      (cancel-timer q--rescan-idle-timer))
-    (setq-local q--rescan-idle-timer
-                (run-with-idle-timer
-                 q-rescan-idle-delay nil
-                 (lambda ()
-                   (if (q--scan-state-stale-p file)
-                       (q--do-full-rescan buf "project files changed")
-                     (q--do-incremental-rescan buf file)))))))
+    (when (timerp (q--project-plist-get :rescan-timer))
+      (cancel-timer (q--project-plist-get :rescan-timer)))
+    (q--project-plist-put
+     :rescan-timer
+     (run-with-idle-timer
+      q-rescan-idle-delay nil
+      (lambda ()
+        (if (q--scan-state-stale-p file)
+            (q--do-full-rescan buf "project files changed")
+          (q--do-incremental-rescan buf file)))))))
 
 (defun q--ensure-project-scan-cache ()
   "Ensure the shared project cache is populated for the current buffer.
