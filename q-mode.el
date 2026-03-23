@@ -94,6 +94,11 @@
 ;; `C-c M-l' can be used to load the file associated with the active
 ;; buffer.
 
+;; `C-c C-g' triggers a manual rescan of the project, re-scanning only
+;; files whose mtime has changed.  Prefix with `C-u' to force all files
+;; to be re-scanned regardless of mtime, which is useful after a branch
+;; switch where file timestamps may be preserved.
+
 ;; Quick access to variable and function definitions can be obtained
 ;; using the `imenu' binding `M-g i'.  Completion is available via
 ;; `completion-at-point' (usually `M-TAB').  Candidates are annotated
@@ -590,6 +595,17 @@ The order of operations matters and must not be rearranged."
   (save-buffer)
   (q-send-string (format "\\l %s" (shell-quote-argument buffer-file-name))))
 
+(defun q-rescan-project (&optional force)
+  "Rescan the current project, skipping files whose mtime is unchanged.
+With a prefix argument FORCE, re-scan all files regardless of mtime."
+  (interactive "P")
+  (q--project-plist-put :file-list-sentinel nil)
+  (when force
+    (q--project-plist-put :scan-state nil))
+  (q--do-full-rescan (current-buffer)
+                     (if force "forced rescan" "manual rescan")
+                     t))
+
 ;; keymaps
 
 (defvar q-shell-mode-map
@@ -619,6 +635,7 @@ The order of operations matters and must not be rearranged."
     (define-key map "\C-c\C-\\"  'q-kill-q-buffer)
     (define-key map "\C-c\C-z"   'q-customize)
     (define-key map "\C-c\C-c"   'comment-region)
+    (define-key map "\C-c\C-g"   'q-rescan-project)
     map)
   "Keymap for q major mode.")
 
@@ -639,6 +656,8 @@ The order of operations matters and must not be rearranged."
     ["Load File"             q-load-file t]
     "---"
     ["Comment Region" comment-region t]
+    "---"
+    ["Rescan Project"  q-rescan-project t]
     "---"
     ["Customize Q"    q-customize t]
     ["Show Q Shell"   q-show-q-buffer t]
@@ -1292,16 +1311,17 @@ on repeated rebuilds."
 
 ;; full and incremental rescans
 
-(defun q--do-full-rescan (buf reason)
+(defun q--do-full-rescan (buf reason &optional force)
   "Scan files in the project for BUF whose mtime has changed, then rebuild.
 REASON is a short string describing why the rescan was triggered.
 Files whose mtime is unchanged are reused from the existing cache.
+If FORCE is non-nil, run even if the scan-state appears current.
 Emits a progress message before scanning and a timing message after."
   (when (buffer-live-p buf)
     (with-current-buffer buf
       (let* ((files (q--ensure-project-file-list))
              (state (q--compute-scan-cache-state files)))
-        (unless (equal state (q--project-plist-get :scan-state))
+        (unless (and (not force) (equal state (q--project-plist-get :scan-state)))
           (let* ((old-state     (q--project-plist-get :scan-state))
                  (old-mtimes    (make-hash-table :test #'equal))
                  (old-file-index (q--project-plist-get :file-index))
