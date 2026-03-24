@@ -1111,11 +1111,11 @@ Uses a visiting buffer when modified; otherwise reads from disk."
       (and file (q--scannable-q-file-p file) (list file)))))
 
 (defun q--ensure-project-file-list ()
-  "Return the cached expanded file list, refreshing when project or file changes.
+  "Return the cached expanded file list, refreshing when the project changes.
 The \\l expansion only runs when the sentinel changes, not on every
 eldoc or CAPF invocation."
   (let* ((file     (buffer-file-name))
-         (sentinel (list (q--project-key) file)))
+         (sentinel (q--project-key)))
     (unless (equal sentinel (q--project-plist-get :file-list-sentinel))
       (let ((files (q--expand-loaded-files
                     (or (q--project-root-files)
