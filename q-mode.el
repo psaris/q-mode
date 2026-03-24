@@ -1319,6 +1319,8 @@ If FORCE is non-nil, run even if the scan-state appears current.
 Emits a progress message before scanning and a timing message after."
   (when (buffer-live-p buf)
     (with-current-buffer buf
+      (message "q: %s, enumerating project files..." reason)
+      (redisplay)
       (let* ((files (q--ensure-project-file-list))
              (state (q--compute-scan-cache-state files)))
         (unless (and (not force) (equal state (q--project-plist-get :scan-state)))
