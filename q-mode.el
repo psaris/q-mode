@@ -1406,7 +1406,9 @@ The timer is stored in the project cache so only one fires per project."
       q-rescan-idle-delay nil
       (lambda ()
         (if (q--scan-state-stale-p file)
-            (q--do-full-rescan buf "project files changed")
+            (progn
+              (q--project-plist-put :file-list-sentinel nil)
+              (q--do-full-rescan buf "project files changed"))
           (q--do-incremental-rescan buf file)))))))
 
 (defun q--ensure-project-scan-cache ()
