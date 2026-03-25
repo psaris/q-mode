@@ -1227,7 +1227,7 @@ Returns nil when SUMMARY does not look like a function definition."
             (setq namespace (match-string-no-properties 1))
           (let* ((line-start (line-beginning-position))
                  (line-end (line-end-position))
-                 (line (line-number-at-pos line-start))
+                 (line (line-number-at-pos line-start t))
                  (summary (buffer-substring-no-properties line-start line-end)))
             (cl-labels ((make-meta (pos)
                           (list :pos pos
