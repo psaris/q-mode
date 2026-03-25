@@ -1280,34 +1280,32 @@ Returns nil when SUMMARY does not look like a function definition."
 
 ;; merged index rebuild (from per-file sub-index)
 
+(defun q--merge-index (src dst)
+  "Merge all entries from sub-index SRC into merged index DST.
+Uses `copy-sequence' + `nconc' to avoid allocating intermediate lists:
+each per-file entry list is shallow-copied once, then spliced onto the
+accumulator destructively.  The per-file sub-index lists in SRC are
+never mutated, so repeated rebuilds remain safe."
+  (maphash (lambda (name entries)
+             (puthash name (nconc (gethash name dst) (copy-sequence entries)) dst))
+           src))
+
 (defun q--rebuild-merged-indexes ()
   "Rebuild the merged indexes from the per-file sub-index.
 Called after any per-file entry is updated so all buffers in the project
-see a consistent view without re-reading any unchanged files.
-Uses `append' (not `nconc') to avoid destructively modifying the source
-lists stored in the per-file sub-index, which would cause circular lists
-on repeated rebuilds."
-  (let ((file-index (q--project-plist-get :file-index))
-        (def-index  (make-hash-table :test #'equal))
+see a consistent view without re-reading any unchanged files."
+  (let ((def-index  (make-hash-table :test #'equal))
         (ref-index  (make-hash-table :test #'equal))
-        (symbols    nil))
-    (when (hash-table-p file-index)
-      (maphash (lambda (_file artifacts)
-                 (maphash (lambda (name entries)
-                            (puthash name (append (gethash name def-index) entries) def-index))
-                          (plist-get artifacts :definitions))
-                 (maphash (lambda (name entries)
-                            (puthash name (append (gethash name ref-index) entries) ref-index))
-                          (plist-get artifacts :references))
-                 (setq symbols (append symbols (plist-get artifacts :symbols))))
-               file-index))
-    (let ((candidates (make-hash-table :test #'equal :size (hash-table-count q-capf-core-words))))
-      (maphash (lambda (k _) (puthash k t candidates)) q-capf-core-words)
-      (dolist (sym symbols) (puthash sym t candidates))
-      (q--project-plist-put
-       :definition-index      def-index
-       :reference-index       ref-index
-       :completion-candidates candidates))))
+        (candidates (copy-hash-table q-capf-core-words)))
+    (dolist (artifacts (hash-table-values (or (q--project-plist-get :file-index)
+                                              (make-hash-table))))
+      (q--merge-index (plist-get artifacts :definitions) def-index)
+      (q--merge-index (plist-get artifacts :references)  ref-index)
+      (dolist (sym (plist-get artifacts :symbols)) (puthash sym t candidates)))
+    (q--project-plist-put
+     :definition-index      def-index
+     :reference-index       ref-index
+     :completion-candidates candidates)))
 
 ;; full and incremental rescans
 
