@@ -1250,14 +1250,6 @@ Returns nil when SUMMARY does not look like a function definition."
                        (entry (q--make-entry meta nil file)))
                   (puthash canonical (cons entry (gethash canonical ref-index)) ref-index))))))
         (forward-line 1))
-      (maphash
-       (lambda (name entries)
-         (puthash name (nreverse entries) def-index))
-       def-index)
-      (maphash
-       (lambda (name entries)
-         (puthash name (nreverse entries) ref-index))
-       ref-index)
       (list :definitions def-index
             :references ref-index
             :symbols (delete-dups symbols)))))
