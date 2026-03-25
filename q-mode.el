@@ -1175,8 +1175,7 @@ after an in-Emacs save and should not trigger a full rescan."
           (when doc       (list :doc doc))
           (if file
               (list :file file
-                    :line (plist-get meta :line)
-                    :col (plist-get meta :col))
+                    :line (plist-get meta :line))
             (list :buffer (current-buffer)
                   :pos (plist-get meta :pos)))))
 
@@ -1232,9 +1231,6 @@ Returns nil when SUMMARY does not look like a function definition."
             (cl-labels ((make-meta (pos)
                           (list :pos pos
                                 :line line
-                                :col (save-excursion
-                                       (goto-char pos)
-                                       (current-column))
                                 :summary summary)))
               (when (looking-at def-pattern)
                 (let* ((name (match-string-no-properties 1))
@@ -1516,7 +1512,7 @@ STRING and PREDICATE are used as in `try-completion'."
                (if file
                    (xref-make-file-location file
                                             (plist-get entry :line)
-                                            (plist-get entry :col))
+                                            0)
                  (xref-make-buffer-location (or buffer (current-buffer))
                                             (plist-get entry :pos))))))
 
