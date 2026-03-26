@@ -1062,23 +1062,21 @@ file path.  Returns nil for unsaved buffers with no project."
           (push resolved targets))))
     (delete-dups targets)))
 
-(defun q--with-file-content (file fn)
-  "Call FN in a buffer containing FILE's content.
-If FILE is being visited and is modified, uses the live buffer.
-Otherwise reads from disk.  Returns nil if FILE is missing."
-  (let ((buf (find-buffer-visiting file)))
-    (if (and buf (buffer-modified-p buf))
-        (with-current-buffer buf (save-excursion (funcall fn)))
-      (with-temp-buffer
-        (condition-case nil
-            (progn (insert-file-contents file) (funcall fn))
-          (file-missing nil))))))
-
 (defun q--load-targets-in-file (file)
   "Return loaded file targets referenced by FILE.
 Uses a visiting buffer when modified; otherwise reads from disk."
-  (q--with-file-content file
-    (lambda () (q--load-targets-in-buffer file))))
+  ;; with-temp-buffer is intentional here: this function is called
+  ;; recursively via q--expand-loaded-files, so a shared scratch buffer
+  ;; would require re-entrancy guarantees we do not have.  The call
+  ;; frequency is low (file-list expansion only, not the hot scan loop)
+  ;; so the per-call allocation cost is acceptable.
+  (let ((buf (find-buffer-visiting file)))
+    (if (and buf (buffer-modified-p buf))
+        (with-current-buffer buf (save-excursion (q--load-targets-in-buffer file)))
+      (with-temp-buffer
+        (condition-case nil
+            (progn (insert-file-contents file) (q--load-targets-in-buffer file))
+          (file-missing nil))))))
 
 (defun q--expand-loaded-files (roots)
   "Return ROOTS plus recursively loaded files from \\l commands."
@@ -1254,17 +1252,29 @@ Returns nil when SUMMARY does not look like a function definition."
             :references ref-index
             :symbols (delete-dups symbols)))))
 
-(defun q--scan-file-artifacts (file)
-  "Return scan artifacts for FILE or the current buffer when FILE is nil."
-  (if (not file)
-      (q--scan-source-in-current-buffer)
-    (or (q--with-file-content file
-          (lambda ()
-            (set-syntax-table q-mode-syntax-table)
+
+(defun q--scan-file-artifacts-into (file buf)
+  "Return scan artifacts for FILE using reusable BUF.
+Reuses BUF across calls to avoid per-file buffer allocation and GC
+pressure.  The caller is responsible for creating and killing BUF."
+  (let ((visiting (find-buffer-visiting file)))
+    (if (and visiting (buffer-modified-p visiting))
+        ;; Live modified buffer: scan it directly without touching BUF.
+        (with-current-buffer visiting
+          (save-excursion
             (q--scan-source-in-current-buffer file)))
-        (list :definitions (make-hash-table :test #'equal)
-              :references  (make-hash-table :test #'equal)
-              :symbols     nil))))
+      ;; Otherwise load from disk into the reusable scratch buffer.
+      (with-current-buffer buf
+        (erase-buffer)
+        (condition-case nil
+            (progn
+              (insert-file-contents file)
+              (set-syntax-table q-mode-syntax-table)
+              (q--scan-source-in-current-buffer file))
+          (file-missing
+           (list :definitions (make-hash-table :test #'equal)
+                 :references  (make-hash-table :test #'equal)
+                 :symbols     nil)))))))
 
 ;; merged index rebuild (from per-file sub-index)
 
@@ -1310,11 +1320,11 @@ Emits a progress message before scanning and a timing message after."
       (let* ((files (q--ensure-project-file-list))
              (state (q--compute-scan-cache-state files)))
         (unless (and (not force) (equal state (q--project-plist-get :scan-state)))
-          (let* ((old-state     (q--project-plist-get :scan-state))
-                 (old-mtimes    (make-hash-table :test #'equal))
+          (let* ((old-state      (q--project-plist-get :scan-state))
+                 (old-mtimes     (make-hash-table :test #'equal))
                  (old-file-index (q--project-plist-get :file-index))
-                 (file-index    (make-hash-table :test #'equal))
-                 (all-files     (or files (list nil)))
+                 (file-index     (make-hash-table :test #'equal))
+                 (all-files      (or files (list nil)))
                  (scanned 0)
                  (progress 0)
                  (t0 (float-time))
@@ -1323,18 +1333,28 @@ Emits a progress message before scanning and a timing message after."
                             0 (length all-files))))
             (dolist (entry old-state)
               (puthash (car entry) (cdr entry) old-mtimes))
-            (dolist (file all-files)
-              (let* ((key       (or file :buffer))
-                     (new-mtime (and file (q--file-mtime file)))
-                     (old-mtime (and file (gethash file old-mtimes)))
-                     (changed   (not (equal old-mtime new-mtime))))
-                (if (and (not changed)
-                         (hash-table-p old-file-index)
-                         (gethash key old-file-index))
-                    (puthash key (gethash key old-file-index) file-index)
-                  (puthash key (q--scan-file-artifacts file) file-index)
-                  (setq scanned (1+ scanned)))
-                (progress-reporter-update reporter (setq progress (1+ progress)))))
+            ;; Single reusable scratch buffer for all on-disk reads.
+            ;; Space-prefixed name disables undo automatically, eliminating
+            ;; undo-list GC pressure from insert-file-contents.
+            (let ((scan-buf (generate-new-buffer " *q-scan-tmp*")))
+              (unwind-protect
+                  (dolist (file all-files)
+                    (let* ((key       (or file :buffer))
+                           (new-mtime (and file (q--file-mtime file)))
+                           (old-mtime (and file (gethash file old-mtimes)))
+                           (changed   (not (equal old-mtime new-mtime))))
+                      (if (and (not changed)
+                               (hash-table-p old-file-index)
+                               (gethash key old-file-index))
+                          (puthash key (gethash key old-file-index) file-index)
+                        (puthash key
+                                 (if file
+                                     (q--scan-file-artifacts-into file scan-buf)
+                                   (q--scan-source-in-current-buffer))
+                                 file-index)
+                        (setq scanned (1+ scanned)))
+                      (progress-reporter-update reporter (setq progress (1+ progress)))))
+                (kill-buffer scan-buf)))
             (progress-reporter-done reporter)
             (q--project-plist-put :scan-state state
                                    :file-index file-index)
@@ -1365,7 +1385,12 @@ Falls back to a full rescan when no per-file sub-index exists yet."
             ;; This guards against spurious after-save-hook fires and
             ;; ensures we only do work when content has actually changed.
             (unless (and old-mtime new-mtime (equal old-mtime new-mtime))
-              (let ((artifacts (q--scan-file-artifacts file)))
+              (let ((artifacts (if file
+                                   (let ((scan-buf (generate-new-buffer " *q-scan-tmp*")))
+                                     (unwind-protect
+                                         (q--scan-file-artifacts-into file scan-buf)
+                                       (kill-buffer scan-buf)))
+                                 (q--scan-source-in-current-buffer))))
                 (puthash key (plist-put artifacts :mtime new-mtime) file-index)
                 ;; Recompute scan-state so the staleness check stays coherent.
                 (q--project-plist-put
