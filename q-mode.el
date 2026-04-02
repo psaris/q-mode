@@ -212,6 +212,16 @@ buffer contents to a temporary file before invoking q."
   :type 'boolean
   :group 'q)
 
+(defcustom q-allow-shell-buffer nil
+  "If non-nil, allow any live comint buffer as the active q buffer.
+This lets you point `q-active-buffer' at a `*shell*' buffer (or
+similar) that is running a q process directly, even though it is
+not a `q-shell-mode' buffer.  When nil (the default) only buffers
+in `q-shell-mode' are accepted."
+  :safe 'booleanp
+  :type 'boolean
+  :group 'q)
+
 (defcustom q-rescan-idle-delay 1.0
   "Seconds of idle time before rescanning after a save.
 Debounces rapid successive saves and defers the check for out-of-band
@@ -301,14 +311,18 @@ that file is committed to version control."
 
 (defun q-shell-buffer-p (buffer)
   "Return non-nil if BUFFER is a live Q shell buffer.
-BUFFER can be a buffer object, buffer name, or cons cell from completion."
+BUFFER can be a buffer object, buffer name, or cons cell from completion.
+When `q-allow-shell-buffer' is non-nil, any live comint buffer with a
+running process is accepted, not just `q-shell-mode' buffers."
   (let* ((target (if (consp buffer) (car buffer) buffer))
          (buf (and target (get-buffer target))))
     (and buf
          (buffer-live-p buf)
          (comint-check-proc buf)
          (with-current-buffer buf
-           (eq major-mode 'q-shell-mode)))))
+           (or (eq major-mode 'q-shell-mode)
+               (and q-allow-shell-buffer
+                    (derived-mode-p 'comint-mode)))))))
 
 (defun q-activate-buffer (buffer)
   "Set the `q-active-buffer' to the supplied BUFFER.
