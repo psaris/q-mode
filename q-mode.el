@@ -1259,7 +1259,7 @@ Returns nil when SUMMARY does not look like a function definition."
                        (ref-pos (match-beginning 1))
                        (canonical (q--canonicalize-name namespace name))
                        (meta (make-meta ref-pos))
-                       (entry (q--make-entry meta nil file)))
+                       (entry (q--make-entry meta nil nil file)))
                   (puthash canonical (cons entry (gethash canonical ref-index)) ref-index))))))
         (forward-line 1))
       (list :definitions def-index
