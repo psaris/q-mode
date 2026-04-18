@@ -493,6 +493,8 @@ The order of operations matters and must not be rearranged."
         (goto-char (point-max))
         (insert-before-markers (concat msg "\n")))
       (comint-simple-send (get-buffer-process q-active-buffer) msg)))
+  ;; Allow `M-g n' (and `q-next-error'/`C-c `') from source buffers.
+  (setq next-error-last-buffer q-active-buffer)
   (when (equal current-prefix-arg '(16)) (q-show-q-buffer)))
 
 (defun q-eval-region (start end)
@@ -617,6 +619,14 @@ The order of operations matters and must not be rearranged."
   (save-buffer)
   (q-send-string (format "\\l %s" (shell-quote-argument buffer-file-name))))
 
+(defun q-next-error (&optional n)
+  "Jump to the Nth next stack-frame error in the active q shell buffer."
+  (interactive "p")
+  (unless (q-shell-buffer-p q-active-buffer)
+    (user-error "No active q buffer; run `M-x q` or activate a q shell with `C-c M-RET`"))
+  (setq next-error-last-buffer q-active-buffer)
+  (next-error (or n 1)))
+
 (defun q-rescan-project (&optional force)
   "Rescan the current project, skipping files whose mtime is unchanged.
 With a prefix argument FORCE, re-scan all files regardless of mtime."
@@ -658,6 +668,7 @@ With a prefix argument FORCE, re-scan all files regardless of mtime."
     (define-key map "\C-c\C-z"   'q-customize)
     (define-key map "\C-c\C-c"   'comment-region)
     (define-key map "\C-c\C-g"   'q-rescan-project)
+    (define-key map "\C-c`"       'q-next-error)
     map)
   "Keymap for q major mode.")
 
@@ -680,6 +691,7 @@ With a prefix argument FORCE, re-scan all files regardless of mtime."
     ["Comment Region" comment-region t]
     "---"
     ["Rescan Project"  q-rescan-project t]
+    ["Next Error"      q-next-error t]
     "---"
     ["Customize Q"    q-customize t]
     ["Show Q Shell"   q-show-q-buffer t]
