@@ -147,6 +147,7 @@
 
 (require 'cl-lib)
 (require 'comint)
+(require 'compile)
 (require 'auth-source nil t)
 (require 'hideshow nil t)
 (require 'project nil t)
@@ -563,6 +564,13 @@ The order of operations matters and must not be rearranged."
           )
   "Regular expression used to find variable declarations.")
 
+;; q runtime stack traces include entries like:
+;;   [2] /path/to/file.q:42: expr
+;; Reuse the same pattern for both Flymake parsing and shell navigation.
+(defconst q--stack-frame-regexp
+  " *\\[[0-9]+\\] *\\(.*\\.[kq]\\):\\([0-9]+\\): "
+  "Regular expression matching a q stack-frame location (file + line).")
+
 (defun q-eval-function ()
   "Send the current function to the inferior q[con] process."
   (interactive)
@@ -944,14 +952,14 @@ current buffer by checking a temporary file."
                                 (concat
                                  "^'[0-9.:T]* \\(.*\\)"  ; error message
                                  "\\(?:.\\|\\\n\\)*\\\n" ; stack trace
-                                 "\\( *[[][0-9][]] *.*\\.[kq]:\\([0-9]+\\): \\).*\\\n" ; line number
+                                 "\\(" q--stack-frame-regexp "\\).*\\\n" ; line number
                                  "\\( +^\\)$" ; carat showing column of error
                                  )
                                 nil t)
                          for msg = (match-string 1)
                          for prefix = (match-string 2)
-                         for row = (string-to-number (match-string 3))
-                         for carat = (match-string 4)
+                         for row = (string-to-number (match-string 4))
+                         for carat = (match-string 5)
                          for col = (- (length carat) (length prefix))
                          for (beg . end) = (flymake-diag-region source row col)
                          when (and beg end)
@@ -1621,6 +1629,12 @@ This function never triggers I/O; it only reads from cached data."
   (setq-local comint-prompt-regexp "^\\(q)+\\|[^:]*:[0-9]+>\\)")
   (setq-local font-lock-defaults q-font-lock-defaults)
   (setq-local syntax-propertize-function #'q-syntax-propertize)
+  ;; Make q stack-trace file/line entries clickable in REPL output.
+  (add-to-list 'compilation-error-regexp-alist-alist
+               `(q-stack-frame ,(concat "^" q--stack-frame-regexp) 1 2))
+  (setq-local compilation-error-regexp-alist
+              (cons 'q-stack-frame compilation-error-regexp-alist))
+  (compilation-shell-minor-mode 1)
   (setq-local comint-process-echoes nil))
 
 (defconst q-imenu-generic-expression
