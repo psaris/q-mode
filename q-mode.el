@@ -346,16 +346,20 @@ Prompt with a list of live Q Shell buffers if called interactively."
    (unless (equal q-init-workspace 0) (format " -w %s" q-init-workspace))
    (when q-init-garbage-collect " -g 1")))
 
-(defun q--qcon-password ()
-  "Return the qcon password from `q-qcon-password'.
-Fall back to `auth-source-search' if unset."
-  (if (not (equal q-qcon-password ""))
-      q-qcon-password
+(defun q--resolve-password (password host user)
+  "Return PASSWORD if non-empty, else consult auth-source for HOST and USER.
+This is the shared helper used by q connection password lookups."
+  (if (not (equal (or password "") ""))
+      password
     (when (featurep 'auth-source)
-      (let ((creds (car (auth-source-search :host q-qcon-server
-                                            :user q-qcon-user
+      (let ((creds (car (auth-source-search :host host
+                                            :user user
                                             :max 1))))
         (when creds (auth-info-password creds))))))
+
+(defun q--qcon-password ()
+  "Return the qcon password, falling back to auth-source if unset."
+  (q--resolve-password q-qcon-password q-qcon-server q-qcon-user))
 
 (defun q-qcon-default-args ()
   "Build the default qcon command-line argument string from `q-qcon-*' variables."
