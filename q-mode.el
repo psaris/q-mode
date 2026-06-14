@@ -322,7 +322,7 @@ running process is accepted, not just `q-shell-mode' buffers."
          (buffer-live-p buf)
          (comint-check-proc buf)
          (with-current-buffer buf
-           (or (eq major-mode 'q-shell-mode)
+           (or (derived-mode-p 'q-shell-mode)
                (and q-allow-shell-buffer
                     (derived-mode-p 'comint-mode)))))))
 
@@ -375,6 +375,12 @@ This is the shared helper used by q connection password lookups."
             (if (equal server "") "localhost" server)
             (unless (equal port "") (format ":%s" port)))))
 
+(defun q--setup-shell-buffer (process history-file)
+  "Set up current q shell buffer for PROCESS using HISTORY-FILE."
+  (setq comint-input-ring-file-name history-file)
+  (comint-read-input-ring t)
+  (set-process-sentinel process 'q-process-sentinel))
+
 ;;;###autoload
 (defun q (&optional host user args)
   "Start a new q process.
@@ -414,9 +420,7 @@ command to read the command line arguments from the minibuffer."
         (q-shell-mode)
         (let ((comint-args (list buffer "q" command nil switches)))
           (setq process (get-buffer-process (apply 'comint-exec comint-args))))
-        (setq comint-input-ring-file-name "~/.q_history")
-        (comint-read-input-ring t)
-        (set-process-sentinel process 'q-process-sentinel)))
+        (q--setup-shell-buffer process "~/.q_history")))
     (q-activate-buffer buffer)
     process))
 
@@ -441,9 +445,7 @@ to read the command line arguments from the minibuffer."
         (q-shell-mode)
         (setq comint-process-echoes nil)
         (setq process (get-buffer-process (comint-exec buffer "qcon" q-qcon-program nil (list args))))
-        (setq comint-input-ring-file-name (concat (getenv "HOME") "/.qcon_history"))
-        (comint-read-input-ring)
-        (set-process-sentinel process 'q-process-sentinel)))
+        (q--setup-shell-buffer process (expand-file-name "~/.qcon_history"))))
     (q-activate-buffer buffer)
     process))
 
