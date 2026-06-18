@@ -1554,9 +1554,17 @@ STRING and PREDICATE are used as in `try-completion'."
 
 ;; xref backend
 
+(defun q--fontify-string (str)
+  "Return STR with `q-mode' font-lock face properties applied."
+  (with-temp-buffer
+    (insert str)
+    (delay-mode-hooks (q-mode))
+    (font-lock-ensure)
+    (buffer-string)))
+
 (defun q--entry->xref (entry)
   "Convert cached ENTRY plist into an xref object."
-  (let ((summary (plist-get entry :summary))
+  (let ((summary (q--fontify-string (plist-get entry :summary)))
         (file (plist-get entry :file))
         (buffer (plist-get entry :buffer)))
     (xref-make summary
