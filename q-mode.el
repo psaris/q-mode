@@ -146,6 +146,7 @@
 
 
 (require 'cl-lib)
+(require 'subr-x)
 (require 'comint)
 (require 'compile)
 (require 'auth-source nil t)
@@ -1282,6 +1283,9 @@ Returns nil when SUMMARY does not look like a function definition."
                        (entry (q--make-entry meta nil nil file)))
                   (puthash canonical (cons entry (gethash canonical ref-index)) ref-index))))))
         (forward-line 1))
+      ;; Reverse row order to make them ascending
+      (dolist (index (list def-index ref-index))
+        (maphash (lambda (name entries) (puthash name (nreverse entries) index)) index))
       (list :definitions def-index
             :references ref-index
             :symbols (delete-dups symbols)))))
@@ -1326,14 +1330,18 @@ never mutated, so repeated rebuilds remain safe."
   "Rebuild the merged indexes from the per-file sub-index.
 Called after any per-file entry is updated so all buffers in the project
 see a consistent view without re-reading any unchanged files."
-  (let ((def-index  (make-hash-table :test #'equal))
-        (ref-index  (make-hash-table :test #'equal))
-        (candidates (copy-hash-table q-capf-core-words)))
-    (dolist (artifacts (hash-table-values (or (q--project-plist-get :file-index)
-                                              (make-hash-table))))
-      (q--merge-index (plist-get artifacts :definitions) def-index)
-      (q--merge-index (plist-get artifacts :references)  ref-index)
-      (dolist (sym (plist-get artifacts :symbols)) (puthash sym t candidates)))
+  (let* ((def-index  (make-hash-table :test #'equal))
+         (ref-index  (make-hash-table :test #'equal))
+         (candidates (copy-hash-table q-capf-core-words))
+         (file-index (or (q--project-plist-get :file-index) (make-hash-table)))
+         ;; Ensure files are in sorted order
+         (files (sort (hash-table-keys file-index)
+                       (lambda (a b) (and (not (eq a :buffer)) (or (eq b :buffer) (string< a b)))))))
+    (dolist (file files)
+      (let ((artifacts (gethash file file-index)))
+        (q--merge-index (plist-get artifacts :definitions) def-index)
+        (q--merge-index (plist-get artifacts :references)  ref-index)
+        (dolist (sym (plist-get artifacts :symbols)) (puthash sym t candidates))))
     (q--project-plist-put
      :definition-index      def-index
      :reference-index       ref-index
