@@ -571,7 +571,7 @@ The order of operations matters and must not be rearranged."
 ;;   [2] /path/to/file.q:42: expr
 ;; Reuse the same pattern for both Flymake parsing and shell navigation.
 (defconst q--stack-frame-regexp
-  " *\\(?:>>\\)?\\[[0-9]+\\] *\\(.*\\.[kq]\\):\\([0-9]+\\): "
+  "\\(?:  \\|>>\\)?\\[[0-9]+\\] *\\(.*\\.[kq]\\):\\([0-9]+\\): "
   "Regular expression matching a q stack-frame location (file + line).")
 
 (defun q-eval-function ()
