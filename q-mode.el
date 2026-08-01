@@ -4,7 +4,7 @@
 ;; Keywords: faces files q
 ;; Package-Requires: ((emacs "28"))
 ;; Created: 8 Jun 2015
-;; Version: 0.1
+;; Version: 0.2
 ;; URL: https://github.com/psaris/q-mode
 
 ;; This file is not part of GNU Emacs.
@@ -70,6 +70,20 @@
 ;; create an inferior qcon shell to communicate with an existing q
 ;; process.  Both can be prefixed with the universal-argument `C-u` to
 ;; customize the arguments used to start the processes.
+
+;; When prompted this way, `q-qcon' offers named connections from
+;; `q-connections' as completion candidates, alongside the option of
+;; typing an ad-hoc "host:port:user" string.  Each entry in
+;; `q-connections' is a (NAME HOST PORT USER) list, letting you refer
+;; to a remote q server by a short name instead of retyping its
+;; host/port/user every time.  In every case, the password itself is
+;; never typed or stored in `q-connections' - it's always resolved
+;; from auth-source.  `.netrc'/`.authinfo' is the common case, but
+;; auth-source is backend-agnostic: anything registered as an
+;; `auth-source-backend' (e.g. the system Secret Service/macOS
+;; Keychain via `auth-source-pass' or `secrets.el', or a custom
+;; backend you write yourself) is consulted the same way, so the
+;; password need not live in a plaintext file at all.
 
 ;; The first q[con] session opened becomes the activated buffer.
 ;; To open a new session and send code to the new buffer, it must be
@@ -160,6 +174,21 @@
 (defvar-local q--flymake-proc nil)
 
 (defgroup q nil "Major mode for editing q code." :group 'languages)
+
+(defcustom q-connections nil
+  "Alist of named q connections.
+Each element is (NAME HOST PORT USER); USER may be \"\".  Password is
+not stored here — it is resolved from auth-source at connect time by
+`q--connection-resolve-credentials'.  Auth-source is not tied to
+`.netrc'/`.authinfo': any configured `auth-source-backend' (Secret
+Service, macOS Keychain, a custom backend, etc.) works the same way,
+since `q--connection-resolve-credentials' just calls
+`auth-source-search', which is backend-agnostic."
+  :type '(alist :key-type (string :tag "name")
+                :value-type (list (string :tag "host")
+                                   (string :tag "port")
+                                   (string :tag "user")))
+  :group 'q)
 
 (defcustom q-program "q"
   "Program name for invoking an inferior q."
@@ -270,7 +299,8 @@ disk changes (e.g. from git pull) until Emacs has been idle this long."
   :type 'file
   :group 'q-qcon)
 
-(defcustom q-qcon-server ""
+(define-obsolete-variable-alias 'q-qcon-server 'q-qcon-host "0.2")
+(defcustom q-qcon-host ""
   "Remote q server."
   :safe 'stringp
   :type 'string
@@ -284,16 +314,6 @@ disk changes (e.g. from git pull) until Emacs has been idle this long."
 
 (defcustom q-qcon-user ""
   "If non-nil, qcon will log in to remote q server with this id."
-  :safe 'stringp
-  :type 'string
-  :group 'q-qcon)
-
-(defcustom q-qcon-password ""
-  "Password for remote q server.
-If empty, `auth-source-search' is consulted instead.
-Warning: the `:safe' predicate means this value is accepted without
-prompting from `.dir-locals.el', which risks exposing credentials if
-that file is committed to version control."
   :safe 'stringp
   :type 'string
   :group 'q-qcon)
@@ -346,26 +366,83 @@ Prompt with a list of live Q Shell buffers if called interactively."
    (unless (equal q-init-workspace 0) (format " -w %s" q-init-workspace))
    (when q-init-garbage-collect " -g 1")))
 
-(defun q--resolve-password (password host user)
-  "Return PASSWORD if non-empty, else consult auth-source for HOST and USER.
-This is the shared helper used by q connection password lookups."
-  (if (not (equal (or password "") ""))
-      password
-    (when (featurep 'auth-source)
-      (let ((creds (car (auth-source-search :host host
-                                            :user user
-                                            :max 1))))
-        (when creds (auth-info-password creds))))))
-
-(defun q--qcon-password ()
-  "Return the qcon password, falling back to auth-source if unset."
-  (q--resolve-password q-qcon-password q-qcon-server q-qcon-user))
-
 (defun q-qcon-default-args ()
-  "Build the default qcon command-line argument string from `q-qcon-*' variables."
-  (concat (format "%s:%s" q-qcon-server q-qcon-port)
-          (unless (equal q-qcon-user "")
-            (format ":%s:%s" q-qcon-user (q--qcon-password)))))
+  "Build the default qcon command-line argument string from `q-qcon-*' variables.
+Delegates to `q--qcon-connection-args', so this default (non-prefix-arg)
+path resolves credentials identically to the interactive/prefix-arg
+path."
+  (q--qcon-connection-args q-qcon-host q-qcon-port q-qcon-user))
+
+(defun q--connection-resolve-credentials (host port user)
+  "Resolve a (LOGIN . PASSWORD) cons for HOST/PORT, given USER.
+USER may be \"\" (unset).  Looks up auth-source by HOST+PORT+USER when
+USER is known, or HOST+PORT when it's blank (so a netrc entry can supply
+the login) — passing `:user' as nil to `auth-source-search' is treated
+the same as omitting the keyword entirely, unlike passing \"\", which
+would only match an entry whose login is literally empty.  A
+.netrc/.authinfo entry with no `port' token matches regardless of PORT,
+so this covers plain host-scoped entries too, without a separate
+fallback query.  LOGIN falls back to USER, or \"\", when nothing
+matches; PASSWORD is nil then."
+  (let* ((have-user (and user (not (equal user ""))))
+         (creds (when (featurep 'auth-source)
+                  (car (auth-source-search :host host :port port
+                                            :user (and have-user user) :max 1)))))
+    (cons (if have-user user (or (and creds (plist-get creds :user)) ""))
+          (and creds (auth-info-password creds)))))
+
+(defun q--connection-names ()
+  "Return the configured connection names from `q-connections'."
+  (mapcar #'car q-connections))
+
+(defun q--connection-prompt (prompt default)
+  "Use PROMPT to select `q-connections' pre-filled with DEFAULT.
+Always returns a 4-item list (NAME HOST PORT USER): for a matched
+`q-connections' entry, NAME is the name and HOST/PORT/USER come from the
+entry; for ad-hoc input, NAME is nil and HOST/PORT/USER are parsed by
+splitting the typed string on \":\", defaulting to \"\" for any field
+not present.  A 4th field is treated as an attempted password and
+rejected with a `user-error' (see the message there for why); a
+password is only ever resolved from auth-source, in
+`q--qcon-connection-args'."
+  (let* ((choice (completing-read prompt (q--connection-names) nil nil nil nil default))
+         (entry (assoc choice q-connections)))
+    (if entry
+        (cons choice (cdr entry))
+      (let ((fields (split-string choice ":")))
+        (when (> (length fields) 3)
+          (user-error
+           (concat "q-qcon: refusing typed password; typing a password here leaves "
+                   "it sitting in the minibuffer (and in `savehist' if enabled). "
+                   "Add an entry to your .netrc/.authinfo file instead")))
+        (list nil (nth 0 fields) (or (nth 1 fields) "") (or (nth 2 fields) ""))))))
+
+(defun q--qcon-connection-args (host port user)
+  "Build a qcon args string \"host:port[:user:password]\".
+Given HOST, PORT, and USER (which may be \"\"), login and password are
+resolved together via `q--connection-resolve-credentials'; the
+password always comes from auth-source, never as typed input (that's
+enforced upstream, in `q--connection-prompt').  Note this doesn't hide
+the password from `ps': it's still passed to qcon as a literal
+command-line argument regardless of source, which typed-input
+rejection can't change."
+  (let* ((resolved (q--connection-resolve-credentials host port user))
+         (login (car resolved))
+         (password (or (cdr resolved) "")))
+    (concat (format "%s:%s" host port)
+            (unless (equal login "")
+              (format ":%s:%s" login password)))))
+
+(defun q--qcon-prompt-args ()
+  "Prompt for qcon connection args.
+Thin qcon-specific wrapper around `q--connection-prompt': formats the
+resulting HOST/PORT/USER as a qcon \"host:port[:user:password]\" string
+via `q--qcon-connection-args', for both a matched `q-connections' entry
+and ad-hoc input alike."
+  (let* ((default (q-qcon-default-args))
+         (result (q--connection-prompt
+                  "qcon connection (name, or host:port:user): " default)))
+    (apply #'q--qcon-connection-args (cdr result))))
 
 (defun q-shell-name (server port)
   "Build name of q-shell based on SERVER and PORT."
@@ -424,24 +501,35 @@ command to read the command line arguments from the minibuffer."
     (q-activate-buffer buffer)
     process))
 
+(defun q--qcon-redact-password (args)
+  "Return ARGS with any password redacted.
+ARGS is a qcon argument string of the form
+\"host:port[:user:password]\".  Everything after the third
+colon-delimited field (i.e. the password) is replaced with a fixed
+placeholder."
+  (if (string-match "\\`\\([^:]*:[^:]*:[^:]*\\):.*\\'" args)
+      (concat (match-string 1 args) ":****")
+    args))
+
 ;;;###autoload
 (defun q-qcon (&optional args)
   "Connect to a pre-existing q process.
-Optional argument ARGS specifies the command line args to use
-when executing qcon; the default ARGS are obtained from the
-`q-host' and `q-init-port' customization variables.
-In interactive use, a prefix argument directs this command
-to read the command line arguments from the minibuffer."
-  (interactive (let* ((args (q-qcon-default-args)))
-                 (list (if current-prefix-arg
-                           (read-string "qcon command line args: " args)
-                         args))))
-  (let* ((buffer (get-buffer-create (format "*qcon-%s*" args)))
+Optional argument ARGS specifies the command line args to use when
+executing qcon; the default ARGS are obtained from the `q-qcon-*'
+customization variables.  In interactive use, a prefix argument directs
+this command to prompt for connection args, offering `q-connections' as
+completion candidates while still accepting an ad-hoc \"host:port:user\"
+string."
+  (interactive (list (if current-prefix-arg
+                         (q--qcon-prompt-args)
+                       (q-qcon-default-args))))
+  (let* ((display-args (q--qcon-redact-password args))
+         (buffer (get-buffer-create (format "*qcon-%s*" display-args)))
          process)
     (when (called-interactively-p 'any) (pop-to-buffer buffer))
     (when (or current-prefix-arg (not (q-shell-buffer-p buffer)))
       (with-current-buffer buffer
-        (message "q: starting qcon with command \"%s\"" (concat q-qcon-program " " args))
+        (message "q: starting qcon with command \"%s\"" (concat q-qcon-program " " display-args))
         (q-shell-mode)
         (setq comint-process-echoes nil)
         (setq process (get-buffer-process (comint-exec buffer "qcon" q-qcon-program nil (list args))))

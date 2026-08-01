@@ -51,6 +51,20 @@ create an inferior qcon shell to communicate with an existing q
 process.  Both can be prefixed with the universal-argument `C-u` to
 customize the arguments used to start the processes.
 
+When prompted this way, `q-qcon` offers named connections from
+`q-connections` as completion candidates, alongside the option of
+typing an ad-hoc "host:port:user" string.  Each entry in
+`q-connections` is a (NAME HOST PORT USER) list, letting you refer to
+a remote q server by a short name instead of retyping its
+host/port/user every time.  In every case, the password itself is
+never typed or stored in `q-connections` - it's always resolved from
+auth-source.  `.netrc`/`.authinfo` is the common case, but auth-source
+is backend-agnostic: anything registered as an `auth-source-backend`
+(e.g. the system Secret Service/macOS Keychain via `auth-source-pass`
+or `secrets.el`, or a custom backend you write yourself) is consulted
+the same way, so the password need not live in a plaintext file at
+all.
+
 The first q[con] session opened becomes the activated buffer.
 To open a new session and send code to the new buffer, it must be
 activated.  Switch to the desired buffer and type `C-c M-RET` to
