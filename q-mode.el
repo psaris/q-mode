@@ -71,6 +71,14 @@
 ;; process.  Both can be prefixed with the universal-argument `C-u` to
 ;; customize the arguments used to start the processes.
 
+;; `M-x q-con' talks to an existing q process the same way `q-qcon'
+;; does, but without executing an external qcon binary: Emacs opens
+;; the TCP connection itself.  This matters for the password - qcon
+;; receives it as a literal command-line argument, so it's visible to
+;; anyone on the machine running `ps'; `q-con' resolves it from
+;; auth-source only for the instant it takes to write it to the
+;; socket, and it never becomes a command-line argument at all.
+
 ;; When prompted this way, `q-qcon' offers named connections from
 ;; `q-connections' as completion candidates, alongside the option of
 ;; typing an ad-hoc "host:port:user" string.  Each entry in
@@ -318,6 +326,18 @@ disk changes (e.g. from git pull) until Emacs has been idle this long."
   :type 'string
   :group 'q-qcon)
 
+(defcustom q-con-timeout .1
+  "Seconds `q-con' waits for a reply to a one-shot query, at most.
+`q-con' opens a private TCP connection per query (mirroring how qcon
+itself reconnects for every request), reads whatever comes back from a
+single network read, and closes the connection - matching qcon's own
+behavior, including qcon's own limitation of only ever reading what a
+single read returns, which in practice is capped by the network MTU.
+This bounds how long `q-con' waits for that first data to arrive, so
+an unreachable or wedged server can't hang Emacs forever."
+  :type 'integer
+  :group 'q-qcon)
+
 (defun q-customize ()
   "Customize `q-mode'."
   (interactive)
@@ -366,12 +386,19 @@ Prompt with a list of live Q Shell buffers if called interactively."
    (unless (equal q-init-workspace 0) (format " -w %s" q-init-workspace))
    (when q-init-garbage-collect " -g 1")))
 
+(defun q--connection-default-args ()
+  "Return the default (HOST PORT USER) triple from the `q-qcon-*' variables.
+Shared by `q-qcon-default-args' and `q-con-default-args': `q-qcon' and
+`q-con' address the same kind of remote q server and only differ in
+how they get there, so they start from the same triple."
+  (list q-qcon-host q-qcon-port q-qcon-user))
+
 (defun q-qcon-default-args ()
   "Build the default qcon command-line argument string from `q-qcon-*' variables.
-Delegates to `q--qcon-connection-args', so this default (non-prefix-arg)
-path resolves credentials identically to the interactive/prefix-arg
-path."
-  (q--qcon-connection-args q-qcon-host q-qcon-port q-qcon-user))
+Delegates to `q--qcon-connection-args' via `q--connection-default-args',
+so this default (non-prefix-arg) path resolves credentials identically
+to the interactive/prefix-arg path."
+  (apply #'q--qcon-connection-args (q--connection-default-args)))
 
 (defun q--connection-resolve-credentials (host port user)
   "Resolve a (LOGIN . PASSWORD) cons for HOST/PORT, given USER.
@@ -434,15 +461,43 @@ rejection can't change."
               (format ":%s:%s" login password)))))
 
 (defun q--qcon-prompt-args ()
-  "Prompt for qcon connection args.
-Thin qcon-specific wrapper around `q--connection-prompt': formats the
-resulting HOST/PORT/USER as a qcon \"host:port[:user:password]\" string
-via `q--qcon-connection-args', for both a matched `q-connections' entry
-and ad-hoc input alike."
-  (let* ((default (q-qcon-default-args))
+  "Prompt for a qcon connection, returning a \"host:port[:user:password]\" string.
+Thin qcon-specific wrapper around `q--connection-prompt-args': the
+triple it prompts for is turned into a qcon-style string by applying
+`q--qcon-connection-args', which is the only place a password gets
+resolved."
+  (apply #'q--qcon-connection-args (q--connection-prompt-args)))
+
+(defun q--connection-display-args (host port user)
+  "Return \"host:port[:user]\" for HOST, PORT, USER, with no password.
+Unlike `q--qcon-connection-args', this never calls
+`q--connection-resolve-credentials', so it's safe anywhere a password
+shouldn't be resolved or shown yet - buffer names, messages, minibuffer
+prompt defaults.  `q-con' uses this everywhere `q-qcon' would use
+`q--qcon-connection-args'."
+  (concat (format "%s:%s" host port)
+          (unless (equal user "") (format ":%s" user))))
+
+(defun q-con-default-args ()
+  "Build the default (HOST PORT USER) triple for `q-con'.
+Same triple `q-qcon-default-args' starts from, via
+`q--connection-default-args', before it's turned into a qcon-style
+string; `q-qcon' and `q-con' address the same kind of remote q server
+and only differ in how they get there."
+  (q--connection-default-args))
+
+(defun q--connection-prompt-args ()
+  "Prompt for a q connection, returning a (HOST PORT USER) triple.
+Shared by `q-qcon' and `q-con': offers `q-connections' as completion
+candidates alongside an ad-hoc \"host:port:user\" string.  The
+minibuffer default comes from `q--connection-display-args', so no
+password is ever resolved just to populate a prompt; `q--qcon-prompt-args'
+is the only caller that turns the result into a password-bearing string
+afterwards, via `q--qcon-connection-args'."
+  (let* ((default (apply #'q--connection-display-args (q--connection-default-args)))
          (result (q--connection-prompt
-                  "qcon connection (name, or host:port:user): " default)))
-    (apply #'q--qcon-connection-args (cdr result))))
+                  "q connection (name, or host:port:user): " default)))
+    (cdr result)))
 
 (defun q-shell-name (server port)
   "Build name of q-shell based on SERVER and PORT."
@@ -511,6 +566,34 @@ placeholder."
       (concat (match-string 1 args) ":****")
     args))
 
+(defun q--start-connection-buffer (buffer-name interactive-call message start-process-fn)
+  "Shared buffer-management core of `q-qcon' and `q-con'.
+BUFFER-NAME is the buffer to create or reuse.  INTERACTIVE-CALL is
+whether the calling command was itself invoked interactively -
+`called-interactively-p' can't be called in here directly, since this
+function is never the interactive entry point, so the caller passes its
+own answer through.  MESSAGE is echoed with `message' when a new
+process is actually started.  START-PROCESS-FN is called with no
+arguments, inside the buffer, with `q-shell-mode' already turned on and
+`comint-process-echoes' already set to nil; it must start and return the
+buffer's process, and is the only part of this skeleton that differs
+between `q-qcon' (an inferior qcon process) and `q-con' (a dummy
+process paired with a custom `comint-input-sender').  Both commands also
+funnel through `q--setup-shell-buffer' and `q-activate-buffer' here, so
+history-file handling and activation stay identical between them."
+  (let ((buffer (get-buffer-create buffer-name))
+        process)
+    (when interactive-call (pop-to-buffer buffer))
+    (when (or current-prefix-arg (not (q-shell-buffer-p buffer)))
+      (with-current-buffer buffer
+        (message "%s" message)
+        (q-shell-mode)
+        (setq comint-process-echoes nil)
+        (setq process (funcall start-process-fn))
+        (q--setup-shell-buffer process (expand-file-name "~/.qcon_history"))))
+    (q-activate-buffer buffer)
+    process))
+
 ;;;###autoload
 (defun q-qcon (&optional args)
   "Connect to a pre-existing q process.
@@ -523,19 +606,133 @@ string."
   (interactive (list (if current-prefix-arg
                          (q--qcon-prompt-args)
                        (q-qcon-default-args))))
-  (let* ((display-args (q--qcon-redact-password args))
-         (buffer (get-buffer-create (format "*qcon-%s*" display-args)))
-         process)
-    (when (called-interactively-p 'any) (pop-to-buffer buffer))
-    (when (or current-prefix-arg (not (q-shell-buffer-p buffer)))
-      (with-current-buffer buffer
-        (message "q: starting qcon with command \"%s\"" (concat q-qcon-program " " display-args))
-        (q-shell-mode)
-        (setq comint-process-echoes nil)
-        (setq process (get-buffer-process (comint-exec buffer "qcon" q-qcon-program nil (list args))))
-        (q--setup-shell-buffer process (expand-file-name "~/.qcon_history"))))
-    (q-activate-buffer buffer)
-    process))
+  (let ((display-args (q--qcon-redact-password args)))
+    (q--start-connection-buffer
+     (format "*qcon-%s*" display-args)
+     (called-interactively-p 'any)
+     (format "q: starting qcon with command \"%s\"" (concat q-qcon-program " " display-args))
+     (lambda ()
+       (get-buffer-process (comint-exec (current-buffer) "qcon" q-qcon-program nil (list args)))))))
+
+(defvar-local q--con-target nil
+  "For a `q-con' buffer, the (HOST PORT USER) triple to reconnect with.
+Resolved to a login/password pair fresh for every query, via
+`q--connection-resolve-credentials', so the password sits in Emacs
+only for the instant it takes to write it to a new socket.")
+
+(defun q--con-port-number (port)
+  "Return PORT, a number or a numeric string, as a number."
+  (if (stringp port) (string-to-number port) port))
+
+(defun q--con-handshake-and-query (login password query)
+  "Build the bytes `q-con' writes to a freshly opened socket.
+LOGIN and PASSWORD are the resolved credentials (either may be \"\");
+QUERY is the q expression to evaluate. A newline is unconditionally
+appended to QUERY."
+  (concat login ":" password "\0" query "\n"))
+
+(defun q--con-one-shot-query (host port user query)
+  "Open one TCP connection to HOST:PORT, run QUERY, return its plain text response.
+USER is resolved to a login/password pair via
+`q--connection-resolve-credentials' immediately before it's written to
+the socket, and never leaves Emacs any other way - unlike qcon, no
+external process is exec'd, so nothing about the connection, let alone
+the password, is ever visible to `ps'.
+
+Matches qcon's own behavior: blocks for up to `q-con-timeout' seconds
+for a single network read, then closes the connection - including
+qcon's own limitation that a reply is only ever as complete as what
+that one read returns, which in practice is capped by the network
+MTU."
+  (let* ((resolved (q--connection-resolve-credentials host port user))
+         (login (car resolved))
+         (password (or (cdr resolved) ""))
+         (output-buffer (generate-new-buffer " *q-con-oneshot*"))
+         proc)
+    (unwind-protect
+        (progn
+          (setq proc (open-network-stream "q-con-oneshot" output-buffer
+                                          host (q--con-port-number port)
+                                          :coding 'binary))
+          (set-process-sentinel proc #'ignore)
+          (process-send-string
+           proc (q--con-handshake-and-query login password query))
+          (when (process-live-p proc)
+            (accept-process-output proc q-con-timeout))
+          (with-current-buffer output-buffer (buffer-string)))
+      (when (and proc (process-live-p proc))
+        (delete-process proc))
+      (kill-buffer output-buffer))))
+
+(defun q--con-input-sender (proc string)
+  "Comint input sender used by `q-con' buffers.
+PROC is the dummy placeholder process kept only so comint-mode
+considers the buffer to have a live process (see `q-con'); STRING is
+the query.  Ignores PROC for actual I/O and instead runs
+`q--con-one-shot-query' against the buffer-local `q--con-target',
+then inserts the reply - followed by a fresh \"host:port>\" prompt, so
+`comint-prompt-regexp' keeps matching - exactly where a real process's
+output would have landed."
+  (let* ((prompt (format "%s:%s>" (nth 0 q--con-target) (nth 1 q--con-target)))
+         (reply (condition-case err
+                    (apply #'q--con-one-shot-query (append q--con-target (list string)))
+                  (error (format "q-con error: %s" (error-message-string err)))))
+         ;; Ensure reply ends with a newline if non-empty and missing one
+         (formatted-reply (if (and (not (string-empty-p reply))
+                                   (not (string-suffix-p "\n" reply)))
+                              (concat reply "\n")
+                            reply)))
+    (comint-output-filter proc (concat formatted-reply prompt))))
+
+;;;###autoload
+(defun q-con (&optional args)
+  "Connect to a pre-existing q process natively, without spawning qcon.
+Behaves like `q-qcon' - same buffer activation, same history file, same
+completion from `q-connections' under a prefix argument - but Emacs
+opens the TCP socket itself instead of executing an external qcon
+binary.  That matters for the password: qcon receives it as a literal
+command-line argument, so anyone on the machine can read it with `ps';
+`q-con' resolves it from auth-source only for the instant it takes to
+write it to the socket, and it never becomes a command-line argument
+to any process at all.
+
+Optional argument ARGS is a (HOST PORT USER) list; the default comes
+from `q-con-default-args', which reuses the `q-qcon-*' customization
+variables since both commands address the same kind of remote q
+server.  In interactive use, a prefix argument prompts for connection
+args exactly as `q-qcon' does, via `q--connection-prompt-args'.
+
+Because the underlying protocol is one-shot - the q process replies
+and closes the connection for every single request, the same way qcon
+itself reconnects per request - `q-con' can't keep one persistent
+socket alive for the whole buffer the way a real inferior process
+would.  Instead the buffer's process is a dummy placeholder that never
+sees any real traffic (see `q--con-input-sender'); every line sent
+opens, uses, and closes its own connection."
+  (interactive (list (if current-prefix-arg
+                         (q--connection-prompt-args)
+                       (q-con-default-args))))
+  (cl-destructuring-bind (host port user) args
+    (let ((display-args (q--connection-display-args host port user)))
+      (q--start-connection-buffer
+       (format "*qcon-%s*" display-args)
+       (called-interactively-p 'any)
+       (format "q: connecting natively to %s (no qcon process; password never leaves Emacs)"
+               display-args)
+       (lambda ()
+         (setq-local q--con-target (list host port user))
+         (setq-local comint-input-sender #'q--con-input-sender)
+         ;; A dummy process to keep comint happy, exactly as ielm does it -
+         ;; it never gets any real input.  `q--con-input-sender' bypasses
+         ;; it entirely and talks to the q process over its own one-shot
+         ;; connections instead.
+         (let ((process (condition-case nil
+                            (start-process "q-con" (current-buffer) "cat")
+                          (file-error (start-process "q-con" (current-buffer) "hexl")))))
+           (set-process-query-on-exit-flag process nil)
+           (set-process-filter process #'comint-output-filter)
+           (comint-output-filter process (format "%s:%s>" host port))
+           process))))))
 
 (defun q-show-q-buffer ()
   "Switch to the active q process, or start a new one (passing in args)."
@@ -577,7 +774,12 @@ The order of operations matters and must not be rearranged."
   text)
 
 (defun q-send-string (string)
-  "Send STRING to the inferior q process stored in `q-active-buffer'."
+  "Send STRING to the inferior q process stored in `q-active-buffer'.
+Goes through the buffer-local `comint-input-sender' rather than
+hardcoding `comint-simple-send', so this works unchanged for a real
+inferior q or qcon process, and also for a `q-con' buffer, where
+`comint-input-sender' is `q--con-input-sender' and STRING instead
+travels over a fresh one-shot network connection."
   (unless (stringp string)
     (user-error "Nothing to send"))
   (unless (q-shell-buffer-p q-active-buffer)
@@ -587,7 +789,7 @@ The order of operations matters and must not be rearranged."
       (unless comint-process-echoes
         (goto-char (point-max))
         (insert-before-markers (concat msg "\n")))
-      (comint-simple-send (get-buffer-process q-active-buffer) msg)))
+      (funcall comint-input-sender (get-buffer-process q-active-buffer) msg)))
   ;; Allow `M-g n' (and `q-next-error'/`C-c `') from source buffers.
   (setq next-error-last-buffer q-active-buffer)
   (when (equal current-prefix-arg '(16)) (q-show-q-buffer)))
