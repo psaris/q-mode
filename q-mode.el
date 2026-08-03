@@ -453,10 +453,14 @@ enforced upstream, in `q--connection-prompt').  Note this doesn't hide
 the password from `ps': it's still passed to qcon as a literal
 command-line argument regardless of source, which typed-input
 rejection can't change."
-  (let* ((resolved (q--connection-resolve-credentials host port user))
+  (let* ((parsed (q--parse-host-scheme host))
+         (use-tls (car parsed))
+         (clean-host (cdr parsed))
+         (resolved (q--connection-resolve-credentials clean-host port user))
          (login (car resolved))
          (password (or (cdr resolved) "")))
-    (concat (format "%s:%s" host port)
+    (when use-tls (message "q: qcon does not support tcps protocol, continuing with tcp"))
+    (concat (format "%s:%s" clean-host port)
             (unless (equal login "")
               (format ":%s:%s" login password)))))
 
@@ -614,6 +618,22 @@ string."
      (lambda ()
        (get-buffer-process (comint-exec (current-buffer) "qcon" q-qcon-program nil (list args)))))))
 
+(defun q--parse-host-scheme (host)
+  "Parse HOST for a valid kdb+ protocol scheme.
+Returns a cons cell `(USE-TLS . CLEAN-HOST)`.  Throws a `user-error` if
+an unsupported scheme is provided."
+  (if (string-match "\\`\\([^:]+\\)://\\(.*\\)" host)
+      (let ((scheme (downcase (match-string 1 host)))
+            (clean-host (match-string 2 host)))
+        (pcase scheme
+          ("tcps" (cons t clean-host))
+          ("tcp"  (cons nil clean-host))
+          (_ (user-error (concat "q-con: Unsupported protocol scheme \"%s://\"."
+                                 "  Use plain host names or tcp[s]://")
+                         scheme))))
+    ;; No "://" found, treat as plain host
+    (cons nil host)))
+
 (defvar-local q--con-target nil
   "For a `q-con' buffer, the (HOST PORT USER) triple to reconnect with.
 Resolved to a login/password pair fresh for every query, via
@@ -644,7 +664,10 @@ for a single network read, then closes the connection - including
 qcon's own limitation that a reply is only ever as complete as what
 that one read returns, which in practice is capped by the network
 MTU."
-  (let* ((resolved (q--connection-resolve-credentials host port user))
+  (let* ((parsed (q--parse-host-scheme host))
+         (use-tls (car parsed))
+         (clean-host (cdr parsed))
+         (resolved (q--connection-resolve-credentials clean-host port user))
          (login (car resolved))
          (password (or (cdr resolved) ""))
          (output-buffer (generate-new-buffer " *q-con-oneshot*"))
@@ -652,7 +675,8 @@ MTU."
     (unwind-protect
         (progn
           (setq proc (open-network-stream "q-con-oneshot" output-buffer
-                                          host (q--con-port-number port)
+                                          clean-host (q--con-port-number port)
+                                          :type (if use-tls 'tls 'plain)
                                           :coding 'binary))
           (set-process-sentinel proc #'ignore)
           (process-send-string
@@ -689,12 +713,12 @@ output would have landed."
   "Connect to a pre-existing q process natively, without spawning qcon.
 Behaves like `q-qcon' - same buffer activation, same history file, same
 completion from `q-connections' under a prefix argument - but Emacs
-opens the TCP socket itself instead of executing an external qcon
+opens the TCP[S] socket itself instead of executing an external qcon
 binary.  That matters for the password: qcon receives it as a literal
 command-line argument, so anyone on the machine can read it with `ps';
 `q-con' resolves it from auth-source only for the instant it takes to
-write it to the socket, and it never becomes a command-line argument
-to any process at all.
+write it to the socket, and it never becomes a command-line argument to
+any process at all.
 
 Optional argument ARGS is a (HOST PORT USER) list; the default comes
 from `q-con-default-args', which reuses the `q-qcon-*' customization
