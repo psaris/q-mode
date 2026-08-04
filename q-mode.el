@@ -388,17 +388,11 @@ Prompt with a list of live Q Shell buffers if called interactively."
 
 (defun q--connection-default-args ()
   "Return the default (HOST PORT USER) triple from the `q-qcon-*' variables.
-Shared by `q-qcon-default-args' and `q-con-default-args': `q-qcon' and
-`q-con' address the same kind of remote q server and only differ in
-how they get there, so they start from the same triple."
+Shared by `q-qcon' and `q-con' for their non-prefix-arg path.  Unlike
+`q--connection-prompt-args', no `q-connections' selection happens here,
+so there's no alias to report - `q--format-buffer-name' just gets a
+plain HOST/PORT and shows no alias for the default connection."
   (list q-qcon-host q-qcon-port q-qcon-user))
-
-(defun q-qcon-default-args ()
-  "Build the default qcon command-line argument string from `q-qcon-*' variables.
-Delegates to `q--qcon-connection-args' via `q--connection-default-args',
-so this default (non-prefix-arg) path resolves credentials identically
-to the interactive/prefix-arg path."
-  (apply #'q--qcon-connection-args (q--connection-default-args)))
 
 (defun q--connection-resolve-credentials (host port user)
   "Resolve a (LOGIN . PASSWORD) cons for HOST/PORT, given USER.
@@ -431,7 +425,7 @@ splitting the typed string on \":\", defaulting to \"\" for any field
 not present.  A 4th field is treated as an attempted password and
 rejected with a `user-error' (see the message there for why); a
 password is only ever resolved from auth-source, in
-`q--qcon-connection-args'."
+`q--qcon-resolve-args'."
   (let* ((choice (completing-read prompt (q--connection-names) nil nil nil nil default))
          (entry (assoc choice q-connections)))
     (if entry
@@ -444,15 +438,15 @@ password is only ever resolved from auth-source, in
                    "Add an entry to your .netrc/.authinfo file instead")))
         (list nil (nth 0 fields) (or (nth 1 fields) "") (or (nth 2 fields) ""))))))
 
-(defun q--qcon-connection-args (host port user)
-  "Build a qcon args string \"host:port[:user:password]\".
-Given HOST, PORT, and USER (which may be \"\"), login and password are
-resolved together via `q--connection-resolve-credentials'; the
-password always comes from auth-source, never as typed input (that's
-enforced upstream, in `q--connection-prompt').  Note this doesn't hide
-the password from `ps': it's still passed to qcon as a literal
-command-line argument regardless of source, which typed-input
-rejection can't change."
+(defun q--qcon-resolve-args (host port user)
+  "Resolve credentials for HOST/PORT/USER, returning (HOST PORT LOGIN PASSWORD).
+HOST comes back scheme-stripped.  LOGIN and PASSWORD are resolved
+together via `q--connection-resolve-credentials' - the password always
+comes from auth-source, never as typed input (that's enforced upstream,
+in `q--connection-prompt').  This is the only place `q-qcon' resolves
+credentials; `q--qcon-format-args' and `q--qcon-redact-args' both just
+join this same tuple back into a string, without touching auth-source
+again."
   (let* ((parsed (q--parse-host-scheme host))
          (use-tls (car parsed))
          (clean-host (cdr parsed))
@@ -460,62 +454,66 @@ rejection can't change."
          (login (car resolved))
          (password (or (cdr resolved) "")))
     (when use-tls (message "q: qcon does not support tcps protocol, continuing with tcp"))
-    (concat (format "%s:%s" clean-host port)
-            (unless (equal login "")
-              (format ":%s:%s" login password)))))
-
-(defun q--qcon-prompt-args ()
-  "Prompt for a qcon connection, returning a \"host:port[:user:password]\" string.
-Thin qcon-specific wrapper around `q--connection-prompt-args': the
-triple it prompts for is turned into a qcon-style string by applying
-`q--qcon-connection-args', which is the only place a password gets
-resolved."
-  (apply #'q--qcon-connection-args (q--connection-prompt-args)))
+    (list clean-host port login password)))
 
 (defun q--connection-display-args (host port user)
   "Return \"host:port[:user]\" for HOST, PORT, USER, with no password.
-Unlike `q--qcon-connection-args', this never calls
+Unlike `q--qcon-resolve-args', this never calls
 `q--connection-resolve-credentials', so it's safe anywhere a password
-shouldn't be resolved or shown yet - buffer names, messages, minibuffer
-prompt defaults.  `q-con' uses this everywhere `q-qcon' would use
-`q--qcon-connection-args'."
+shouldn't be resolved or shown yet - messages, minibuffer prompt
+defaults."
   (concat (format "%s:%s" host port)
           (unless (equal user "") (format ":%s" user))))
 
 (defun q-con-default-args ()
   "Build the default (HOST PORT USER) triple for `q-con'.
-Same triple `q-qcon-default-args' starts from, via
-`q--connection-default-args', before it's turned into a qcon-style
-string; `q-qcon' and `q-con' address the same kind of remote q server
-and only differ in how they get there."
+Same triple `q-qcon' starts from too, via `q--connection-default-args';
+`q-qcon' and `q-con' address the same kind of remote q server and only
+differ in how they get there."
   (q--connection-default-args))
 
 (defun q--connection-prompt-args ()
-  "Prompt for a q connection, returning a (HOST PORT USER) triple.
+  "Prompt for a q connection, returning a (HOST PORT USER ALIAS) tuple.
 Shared by `q-qcon' and `q-con': offers `q-connections' as completion
 candidates alongside an ad-hoc \"host:port:user\" string.  The
 minibuffer default comes from `q--connection-display-args', so no
-password is ever resolved just to populate a prompt; `q--qcon-prompt-args'
-is the only caller that turns the result into a password-bearing string
-afterwards, via `q--qcon-connection-args'."
+password is ever resolved just to populate a prompt.  ALIAS is the
+matched `q-connections' NAME - already known from the selection itself,
+so callers pass it straight to `q--format-buffer-name' instead of that
+function re-deriving the same match by searching `q-connections' again;
+ALIAS is nil for ad-hoc, unmatched input."
   (let* ((default (apply #'q--connection-display-args (q--connection-default-args)))
          (result (q--connection-prompt
                   "q connection (name, or host:port:user): " default)))
-    (cdr result)))
-
-(defun q-shell-name (server port)
-  "Build name of q-shell based on SERVER and PORT."
-  (if (and (equal server "") (equal port ""))
-      "q"
-    (concat "q-"
-            (if (equal server "") "localhost" server)
-            (unless (equal port "") (format ":%s" port)))))
+    ;; result is (NAME HOST PORT USER); move NAME to the end, as ALIAS.
+    (append (cdr result) (list (car result)))))
 
 (defun q--setup-shell-buffer (process history-file)
   "Set up current q shell buffer for PROCESS using HISTORY-FILE."
   (setq comint-input-ring-file-name history-file)
   (comint-read-input-ring t)
   (set-process-sentinel process 'q-process-sentinel))
+
+(defun q--format-buffer-name (type &optional host port alias)
+  "Return a standard q-mode buffer name.
+TYPE is typically one of :shell, :con, or :qcon and HOST and PORT will
+be appended for remote connections and optionally for a local process.
+ALIAS, when non-nil, is shown in brackets before HOST/PORT.  It's the
+caller's job to supply it - typically a matched `q-connections' NAME
+from `q--connection-prompt-args' - since the caller already knows
+whether a named connection was selected; this function doesn't search
+`q-connections' itself to rediscover that."
+  (let* ((type-str (substring (symbol-name type) 1))
+         (parsed (when host (q--parse-host-scheme host)))
+         (clean-host (cdr parsed))
+         (port-str (when port (number-to-string (q--con-port-number port)))))
+    (concat "*q-" type-str
+            (when (and clean-host port-str)
+              (concat ":"
+                      (when (and alias (not (string-empty-p alias)))
+                        (concat " [" alias "]"))
+                      " " clean-host ":" port-str))
+            "*")))
 
 ;;;###autoload
 (defun q (&optional host user args)
@@ -543,7 +541,7 @@ command to read the command line arguments from the minibuffer."
          (qs (not (equal host "")))
          (port (let ((case-fold-search nil))
                  (if (string-match "-p *\\([0-9]+\\)" args) (match-string 1 args) "")))
-         (buffer (get-buffer-create (format "*%s*" (q-shell-name host port))))
+         (buffer (get-buffer-create (q--format-buffer-name :shell host port)))
          (command (if qs "ssh" (or shell-file-name (getenv "SHELL") "/bin/sh")))
          (switches (append (if qs (list "-t" host) (list "-c")) (list cmd)))
          ;; disable kdb-x rlwrap functionality
@@ -560,15 +558,26 @@ command to read the command line arguments from the minibuffer."
     (q-activate-buffer buffer)
     process))
 
-(defun q--qcon-redact-password (args)
-  "Return ARGS with any password redacted.
-ARGS is a qcon argument string of the form
-\"host:port[:user:password]\".  Everything after the third
-colon-delimited field (i.e. the password) is replaced with a fixed
-placeholder."
-  (if (string-match "\\`\\([^:]*:[^:]*:[^:]*\\):.*\\'" args)
-      (concat (match-string 1 args) ":****")
-    args))
+(defun q--qcon-format-args (host port user password)
+  "Join HOST, PORT, USER, and PASSWORD into a qcon args string.
+Given the tuple `q--qcon-resolve-args' returns.  USER \"\" means no
+credentials were resolved, so none are appended - PASSWORD is only ever
+included alongside a non-empty USER.  This is the one place the real
+password is written back out, and it's only ever handed to
+`comint-exec' for the actual qcon process, never to a buffer name or a
+`message'."
+  (concat (format "%s:%s" host port)
+          (unless (equal user "") (format ":%s:%s" user password))))
+
+(defun q--qcon-redact-args (host port user password)
+  "Like `q--qcon-format-args', but PASSWORD is replaced with \"****\".
+Safe anywhere the real password shouldn't appear - buffer names,
+`message' output.  PASSWORD itself is never even read; only its
+presence alongside a non-empty USER decides whether \"****\" is
+appended at all."
+  (ignore password)
+  (concat (format "%s:%s" host port)
+          (unless (equal user "") (format ":%s:****" user))))
 
 (defun q--start-connection-buffer (buffer-name interactive-call message start-process-fn)
   "Shared buffer-management core of `q-qcon' and `q-con'.
@@ -601,22 +610,27 @@ history-file handling and activation stay identical between them."
 ;;;###autoload
 (defun q-qcon (&optional args)
   "Connect to a pre-existing q process.
-Optional argument ARGS specifies the command line args to use when
-executing qcon; the default ARGS are obtained from the `q-qcon-*'
-customization variables.  In interactive use, a prefix argument directs
-this command to prompt for connection args, offering `q-connections' as
-completion candidates while still accepting an ad-hoc \"host:port:user\"
-string."
+Optional argument ARGS is a (HOST PORT USER ALIAS) list, the same shape
+`q-con' consumes; the default comes from `q--connection-default-args'
+and the `q-qcon-*' customization variables.  ALIAS, when non-nil, is a
+matched `q-connections' NAME, already known from selection and passed
+straight through to `q--format-buffer-name'.  In interactive use, a
+prefix argument directs this command to prompt for connection args,
+offering `q-connections' as completion candidates while still accepting
+an ad-hoc \"host:port:user\" string."
   (interactive (list (if current-prefix-arg
-                         (q--qcon-prompt-args)
-                       (q-qcon-default-args))))
-  (let ((display-args (q--qcon-redact-password args)))
-    (q--start-connection-buffer
-     (format "*qcon-%s*" display-args)
-     (called-interactively-p 'any)
-     (format "q: starting qcon with command \"%s\"" (concat q-qcon-program " " display-args))
-     (lambda ()
-       (get-buffer-process (comint-exec (current-buffer) "qcon" q-qcon-program nil (list args)))))))
+                         (q--connection-prompt-args)
+                       (q--connection-default-args))))
+  (cl-destructuring-bind (host port user &optional alias) args
+    (cl-destructuring-bind (host port login password) (q--qcon-resolve-args host port user)
+      (let ((cmd-args (q--qcon-format-args host port login password))
+            (display-args (q--qcon-redact-args host port login password)))
+        (q--start-connection-buffer
+         (q--format-buffer-name :qcon host port alias)
+         (called-interactively-p 'any)
+         (format "q: starting qcon with command \"%s\"" (concat q-qcon-program " " display-args))
+         (lambda ()
+           (get-buffer-process (comint-exec (current-buffer) "qcon" q-qcon-program nil (list cmd-args)))))))))
 
 (defun q--parse-host-scheme (host)
   "Parse HOST for a valid kdb+ protocol scheme.
@@ -718,13 +732,16 @@ binary.  That matters for the password: qcon receives it as a literal
 command-line argument, so anyone on the machine can read it with `ps';
 `q-con' resolves it from auth-source only for the instant it takes to
 write it to the socket, and it never becomes a command-line argument to
-any process at all.
+any process at all.  Additionally, `q-con' support TLS communication for
+hosts prefixed with the tcps:// scheme.
 
-Optional argument ARGS is a (HOST PORT USER) list; the default comes
-from `q-con-default-args', which reuses the `q-qcon-*' customization
-variables since both commands address the same kind of remote q
-server.  In interactive use, a prefix argument prompts for connection
-args exactly as `q-qcon' does, via `q--connection-prompt-args'.
+Optional argument ARGS is a (HOST PORT USER ALIAS) list; the default
+comes from `q-con-default-args', which reuses the `q-qcon-*'
+customization variables since both commands address the same kind of
+remote q server.  ALIAS, when non-nil, is a matched `q-connections'
+NAME, passed straight through to `q--format-buffer-name'.  In
+interactive use, a prefix argument prompts for connection args exactly
+as `q-qcon' does, via `q--connection-prompt-args'.
 
 Because the underlying protocol is one-shot - the q process replies
 and closes the connection for every single request, the same way qcon
@@ -736,13 +753,12 @@ opens, uses, and closes its own connection."
   (interactive (list (if current-prefix-arg
                          (q--connection-prompt-args)
                        (q-con-default-args))))
-  (cl-destructuring-bind (host port user) args
+  (cl-destructuring-bind (host port user &optional alias) args
     (let ((display-args (q--connection-display-args host port user)))
       (q--start-connection-buffer
-       (format "*qcon-%s*" display-args)
+       (q--format-buffer-name :con host port alias)
        (called-interactively-p 'any)
-       (format "q: connecting natively to %s (no qcon process; password never leaves Emacs)"
-               display-args)
+       (format "q: connecting natively to %s " display-args)
        (lambda ()
          (setq-local q--con-target (list host port user))
          (setq-local comint-input-sender #'q--con-input-sender)
