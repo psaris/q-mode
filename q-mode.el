@@ -488,9 +488,13 @@ ALIAS is nil for ad-hoc, unmatched input."
     ;; result is (NAME HOST PORT USER); move NAME to the end, as ALIAS.
     (append (cdr result) (list (car result)))))
 
-(defun q--setup-shell-buffer (process history-file)
-  "Set up current q shell buffer for PROCESS using HISTORY-FILE."
-  (setq comint-input-ring-file-name history-file)
+(defun q--setup-shell-buffer (process)
+  "Set up current q shell buffer for PROCESS.
+Input history is shared across all q buffers - shell, `q-con', and
+`q-qcon' alike - in a single `~/.q_history', since what's recorded is
+just the q expressions typed at the prompt, the same regardless of how
+this buffer's process is reached."
+  (setq comint-input-ring-file-name (expand-file-name "~/.q_history"))
   (comint-read-input-ring t)
   (set-process-sentinel process 'q-process-sentinel))
 
@@ -554,9 +558,9 @@ command to read the command line arguments from the minibuffer."
         (q-shell-mode)
         (let ((comint-args (list buffer "q" command nil switches)))
           (setq process (get-buffer-process (apply 'comint-exec comint-args))))
-        (q--setup-shell-buffer process "~/.q_history")))
+        (q--setup-shell-buffer process)))
     (q-activate-buffer buffer)
-    process))
+    (get-buffer-process buffer)))
 
 (defun q--qcon-format-args (host port user password)
   "Join HOST, PORT, USER, and PASSWORD into a qcon args string.
@@ -593,19 +597,19 @@ buffer's process, and is the only part of this skeleton that differs
 between `q-qcon' (an inferior qcon process) and `q-con' (a dummy
 process paired with a custom `comint-input-sender').  Both commands also
 funnel through `q--setup-shell-buffer' and `q-activate-buffer' here, so
-history-file handling and activation stay identical between them."
-  (let ((buffer (get-buffer-create buffer-name))
-        process)
+history-file handling and activation stay identical between them.
+Always returns BUFFER-NAME's process, whether it was just started here
+or already running from an earlier call."
+  (let ((buffer (get-buffer-create buffer-name)))
     (when interactive-call (pop-to-buffer buffer))
     (when (or current-prefix-arg (not (q-shell-buffer-p buffer)))
       (with-current-buffer buffer
         (message "%s" message)
         (q-shell-mode)
         (setq comint-process-echoes nil)
-        (setq process (funcall start-process-fn))
-        (q--setup-shell-buffer process (expand-file-name "~/.qcon_history"))))
+        (q--setup-shell-buffer (funcall start-process-fn))))
     (q-activate-buffer buffer)
-    process))
+    (get-buffer-process buffer)))
 
 ;;;###autoload
 (defun q-qcon (&optional args)
