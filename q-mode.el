@@ -387,12 +387,20 @@ Prompt with a list of live Q Shell buffers if called interactively."
    (when q-init-garbage-collect " -g 1")))
 
 (defun q--connection-default-args ()
-  "Return the default (HOST PORT USER) triple from the `q-qcon-*' variables.
-Shared by `q-qcon' and `q-con' for their non-prefix-arg path.  Unlike
-`q--connection-prompt-args', no `q-connections' selection happens here,
-so there's no alias to report - `q--format-buffer-name' just gets a
-plain HOST/PORT and shows no alias for the default connection."
-  (list q-qcon-host q-qcon-port q-qcon-user))
+  "Return the default (HOST PORT USER ALIAS TLS) tuple.
+From the `q-qcon-*' variables.
+Shared by `q-qcon' and `q-con' for their non-prefix-arg path, and with
+`q--connection-prompt-args' for the prefix-arg path - both return the
+same 5-element shape, so callers destructure it the same way regardless
+of which path was taken.  HOST is parsed for a tcp[s]:// scheme once,
+here, via `q--parse-host-scheme'; TLS is non-nil only for an explicit
+tcps:// prefix.  ALIAS is always nil here: unlike
+`q--connection-prompt-args', no `q-connections' selection happens on
+this path, so there's no alias to report."
+  (let* ((parsed (q--parse-host-scheme q-qcon-host))
+         (tls (car parsed))
+         (host (cdr parsed)))
+    (list host q-qcon-port q-qcon-user nil tls)))
 
 (defun q--connection-resolve-credentials (host port user)
   "Resolve a (LOGIN . PASSWORD) cons for HOST/PORT, given USER.
@@ -418,43 +426,53 @@ matches; PASSWORD is nil then."
 
 (defun q--connection-prompt (prompt default)
   "Use PROMPT to select `q-connections' pre-filled with DEFAULT.
-Always returns a 4-item list (NAME HOST PORT USER): for a matched
+Always returns a 5-item list (NAME HOST PORT USER TLS): for a matched
 `q-connections' entry, NAME is the name and HOST/PORT/USER come from the
 entry; for ad-hoc input, NAME is nil and HOST/PORT/USER are parsed by
 splitting the typed string on \":\", defaulting to \"\" for any field
-not present.  A 4th field is treated as an attempted password and
+not present.  Either way, a tcp[s]:// scheme is parsed off HOST exactly
+once here, via `q--parse-host-scheme', before any colon-splitting
+happens - so a scheme prefix's own \"://\" doesn't get mistaken for
+field separators (splitting \"tcps://host:5000\" on \":\" first, without
+this, would misread \"tcps\" as HOST and \"//host\" as PORT).  TLS is
+non-nil only for an explicit tcps:// prefix.  A 4th field, once the
+scheme is out of the way, is treated as an attempted password and
 rejected with a `user-error' (see the message there for why); a
 password is only ever resolved from auth-source, in
 `q--qcon-resolve-args'."
   (let* ((choice (completing-read prompt (q--connection-names) nil nil nil nil default))
          (entry (assoc choice q-connections)))
     (if entry
-        (cons choice (cdr entry))
-      (let ((fields (split-string choice ":")))
+        (let* ((parsed (q--parse-host-scheme (nth 1 entry)))
+               (tls (car parsed))
+               (host (cdr parsed)))
+          (list choice host (nth 2 entry) (nth 3 entry) tls))
+      (let* ((parsed (q--parse-host-scheme choice))
+             (tls (car parsed))
+             (fields (split-string (cdr parsed) ":")))
         (when (> (length fields) 3)
           (user-error
            (concat "q-qcon: refusing typed password; typing a password here leaves "
                    "it sitting in the minibuffer (and in `savehist' if enabled). "
                    "Add an entry to your .netrc/.authinfo file instead")))
-        (list nil (nth 0 fields) (or (nth 1 fields) "") (or (nth 2 fields) ""))))))
+        (list nil (nth 0 fields) (or (nth 1 fields) "") (or (nth 2 fields) "") tls)))))
 
-(defun q--qcon-resolve-args (host port user)
+(defun q--qcon-resolve-args (host port user tls)
   "Resolve credentials for HOST/PORT/USER, returning (HOST PORT LOGIN PASSWORD).
-HOST comes back scheme-stripped.  LOGIN and PASSWORD are resolved
-together via `q--connection-resolve-credentials' - the password always
-comes from auth-source, never as typed input (that's enforced upstream,
-in `q--connection-prompt').  This is the only place `q-qcon' resolves
-credentials; `q--qcon-format-args' and `q--qcon-redact-args' both just
-join this same tuple back into a string, without touching auth-source
-again."
-  (let* ((parsed (q--parse-host-scheme host))
-         (use-tls (car parsed))
-         (clean-host (cdr parsed))
-         (resolved (q--connection-resolve-credentials clean-host port user))
+HOST is assumed already scheme-stripped - TLS is resolved once,
+upstream, at the point HOST was first obtained (`q--connection-prompt'
+or `q--connection-default-args'), not re-derived here.  LOGIN and
+PASSWORD are resolved together via `q--connection-resolve-credentials'
+- the password always comes from auth-source, never as typed input
+(that's enforced upstream, in `q--connection-prompt').  This is the
+only place `q-qcon' resolves credentials; `q--qcon-format-args' and
+`q--qcon-redact-args' both just join this same tuple back into a
+string, without touching auth-source again."
+  (let* ((resolved (q--connection-resolve-credentials host port user))
          (login (car resolved))
          (password (or (cdr resolved) "")))
-    (when use-tls (message "q: qcon does not support tcps protocol, continuing with tcp"))
-    (list clean-host port login password)))
+    (when tls (message "q: qcon does not support tcps protocol, continuing with tcp"))
+    (list host port login password)))
 
 (defun q--connection-display-args (host port user)
   "Return \"host:port[:user]\" for HOST, PORT, USER, with no password.
@@ -466,14 +484,14 @@ defaults."
           (unless (equal user "") (format ":%s" user))))
 
 (defun q-con-default-args ()
-  "Build the default (HOST PORT USER) triple for `q-con'.
-Same triple `q-qcon' starts from too, via `q--connection-default-args';
+  "Build the default (HOST PORT USER ALIAS TLS) tuple for `q-con'.
+Same tuple `q-qcon' starts from too, via `q--connection-default-args';
 `q-qcon' and `q-con' address the same kind of remote q server and only
 differ in how they get there."
   (q--connection-default-args))
 
 (defun q--connection-prompt-args ()
-  "Prompt for a q connection, returning a (HOST PORT USER ALIAS) tuple.
+  "Prompt for a q connection, returning a (HOST PORT USER ALIAS TLS) tuple.
 Shared by `q-qcon' and `q-con': offers `q-connections' as completion
 candidates alongside an ad-hoc \"host:port:user\" string.  The
 minibuffer default comes from `q--connection-display-args', so no
@@ -481,12 +499,17 @@ password is ever resolved just to populate a prompt.  ALIAS is the
 matched `q-connections' NAME - already known from the selection itself,
 so callers pass it straight to `q--format-buffer-name' instead of that
 function re-deriving the same match by searching `q-connections' again;
-ALIAS is nil for ad-hoc, unmatched input."
-  (let* ((default (apply #'q--connection-display-args (q--connection-default-args)))
-         (result (q--connection-prompt
-                  "q connection (name, or host:port:user): " default)))
-    ;; result is (NAME HOST PORT USER); move NAME to the end, as ALIAS.
-    (append (cdr result) (list (car result)))))
+ALIAS is nil for ad-hoc, unmatched input.  TLS is likewise resolved
+once, in `q--connection-prompt', instead of being re-derived later from
+a scheme-prefixed HOST string."
+  (cl-destructuring-bind (host port user _alias _tls) (q--connection-default-args)
+    (let* ((default (q--connection-display-args host port user))
+           (result (q--connection-prompt
+                    "q connection (name, or host:port:user): " default)))
+      ;; result is (NAME HOST PORT USER TLS); move NAME to the 4th slot,
+      ;; as ALIAS, so the shape matches `q--connection-default-args'.
+      (cl-destructuring-bind (name host port user tls) result
+        (list host port user name tls)))))
 
 (defun q--setup-shell-buffer (process)
   "Set up current q shell buffer for PROCESS.
@@ -614,19 +637,23 @@ or already running from an earlier call."
 ;;;###autoload
 (defun q-qcon (&optional args)
   "Connect to a pre-existing q process.
-Optional argument ARGS is a (HOST PORT USER ALIAS) list, the same shape
-`q-con' consumes; the default comes from `q--connection-default-args'
-and the `q-qcon-*' customization variables.  ALIAS, when non-nil, is a
-matched `q-connections' NAME, already known from selection and passed
-straight through to `q--format-buffer-name'.  In interactive use, a
-prefix argument directs this command to prompt for connection args,
-offering `q-connections' as completion candidates while still accepting
-an ad-hoc \"host:port:user\" string."
+Optional argument ARGS is a (HOST PORT USER ALIAS TLS) list, the same
+shape `q-con' consumes; the default comes from
+`q--connection-default-args' and the `q-qcon-*' customization
+variables.  ALIAS, when non-nil, is a matched `q-connections' NAME,
+already known from selection and passed straight through to
+`q--format-buffer-name'.  TLS, parsed once upstream from a tcp[s]://
+scheme prefix, is only used to decide whether to warn that qcon itself
+doesn't support it (see `q--qcon-resolve-args') - qcon always connects
+over plain tcp regardless.  In interactive use, a prefix argument
+directs this command to prompt for connection args, offering
+`q-connections' as completion candidates while still accepting an
+ad-hoc \"host:port:user\" string."
   (interactive (list (if current-prefix-arg
                          (q--connection-prompt-args)
                        (q--connection-default-args))))
-  (cl-destructuring-bind (host port user &optional alias) args
-    (cl-destructuring-bind (host port login password) (q--qcon-resolve-args host port user)
+  (cl-destructuring-bind (host port user alias tls) args
+    (cl-destructuring-bind (host port login password) (q--qcon-resolve-args host port user tls)
       (let ((cmd-args (q--qcon-format-args host port login password))
             (display-args (q--qcon-redact-args host port login password)))
         (q--start-connection-buffer
@@ -653,7 +680,12 @@ an unsupported scheme is provided."
     (cons nil host)))
 
 (defvar-local q--con-target nil
-  "For a `q-con' buffer, the (HOST PORT USER) triple to reconnect with.
+  "For a `q-con' buffer, the (HOST PORT USER TLS) tuple to reconnect with.
+HOST is already scheme-stripped; TLS was parsed once, when the
+connection was selected (see `q--connection-prompt' and
+`q--connection-default-args') - `q--con-one-shot-query' uses it
+directly instead of re-parsing a scheme prefix out of HOST on every
+query.
 Resolved to a login/password pair fresh for every query, via
 `q--connection-resolve-credentials', so the password sits in Emacs
 only for the instant it takes to write it to a new socket.")
@@ -669,11 +701,14 @@ QUERY is the q expression to evaluate. A newline is unconditionally
 appended to QUERY."
   (concat login ":" password "\0" query "\n"))
 
-(defun q--con-one-shot-query (host port user query)
-  "Open one TCP connection to HOST:PORT, run QUERY, return its plain text response.
-USER is resolved to a login/password pair via
-`q--connection-resolve-credentials' immediately before it's written to
-the socket, and never leaves Emacs any other way - unlike qcon, no
+(defun q--con-one-shot-query (host port user tls query)
+  "Open one TCP[S] connection to HOST:PORT, run QUERY.
+Returns QUERY's plain text response.
+HOST is assumed already scheme-stripped; TLS, resolved once elsewhere
+(see `q--con-target'), decides whether the socket is opened with
+`:type' `tls' or `plain'.  USER is resolved to a login/password pair
+via `q--connection-resolve-credentials' immediately before it's written
+to the socket, and never leaves Emacs any other way - unlike qcon, no
 external process is exec'd, so nothing about the connection, let alone
 the password, is ever visible to `ps'.
 
@@ -682,10 +717,7 @@ for a single network read, then closes the connection - including
 qcon's own limitation that a reply is only ever as complete as what
 that one read returns, which in practice is capped by the network
 MTU."
-  (let* ((parsed (q--parse-host-scheme host))
-         (use-tls (car parsed))
-         (clean-host (cdr parsed))
-         (resolved (q--connection-resolve-credentials clean-host port user))
+  (let* ((resolved (q--connection-resolve-credentials host port user))
          (login (car resolved))
          (password (or (cdr resolved) ""))
          (output-buffer (generate-new-buffer " *q-con-oneshot*"))
@@ -693,8 +725,8 @@ MTU."
     (unwind-protect
         (progn
           (setq proc (open-network-stream "q-con-oneshot" output-buffer
-                                          clean-host (q--con-port-number port)
-                                          :type (if use-tls 'tls 'plain)
+                                          host (q--con-port-number port)
+                                          :type (if tls 'tls 'plain)
                                           :coding 'binary))
           (set-process-sentinel proc #'ignore)
           (process-send-string
@@ -736,16 +768,18 @@ binary.  That matters for the password: qcon receives it as a literal
 command-line argument, so anyone on the machine can read it with `ps';
 `q-con' resolves it from auth-source only for the instant it takes to
 write it to the socket, and it never becomes a command-line argument to
-any process at all.  Additionally, `q-con' support TLS communication for
-hosts prefixed with the tcps:// scheme.
+any process at all.  Additionally, `q-con' supports TLS communication
+for hosts prefixed with the tcps:// scheme.
 
-Optional argument ARGS is a (HOST PORT USER ALIAS) list; the default
-comes from `q-con-default-args', which reuses the `q-qcon-*'
+Optional argument ARGS is a (HOST PORT USER ALIAS TLS) list; the
+default comes from `q-con-default-args', which reuses the `q-qcon-*'
 customization variables since both commands address the same kind of
 remote q server.  ALIAS, when non-nil, is a matched `q-connections'
-NAME, passed straight through to `q--format-buffer-name'.  In
-interactive use, a prefix argument prompts for connection args exactly
-as `q-qcon' does, via `q--connection-prompt-args'.
+NAME, passed straight through to `q--format-buffer-name'.  TLS, parsed
+once upstream from a tcp[s]:// scheme prefix, decides whether the
+one-shot socket in `q--con-one-shot-query' is opened with TLS or not.
+In interactive use, a prefix argument prompts for connection args
+exactly as `q-qcon' does, via `q--connection-prompt-args'.
 
 Because the underlying protocol is one-shot - the q process replies
 and closes the connection for every single request, the same way qcon
@@ -757,14 +791,14 @@ opens, uses, and closes its own connection."
   (interactive (list (if current-prefix-arg
                          (q--connection-prompt-args)
                        (q-con-default-args))))
-  (cl-destructuring-bind (host port user &optional alias) args
+  (cl-destructuring-bind (host port user alias tls) args
     (let ((display-args (q--connection-display-args host port user)))
       (q--start-connection-buffer
        (q--format-buffer-name :con host port alias)
        (called-interactively-p 'any)
        (format "q: connecting natively to %s " display-args)
        (lambda ()
-         (setq-local q--con-target (list host port user))
+         (setq-local q--con-target (list host port user tls))
          (setq-local comint-input-sender #'q--con-input-sender)
          ;; A dummy process to keep comint happy, exactly as ielm does it -
          ;; it never gets any real input.  `q--con-input-sender' bypasses
