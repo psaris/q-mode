@@ -51,9 +51,20 @@ create an inferior qcon shell to communicate with an existing q
 process.  Both can be prefixed with the universal-argument `C-u` to
 customize the arguments used to start the processes.
 
-When prompted this way, `q-qcon` offers named connections from
-`q-connections` as completion candidates, alongside the option of
-typing an ad-hoc "host:port:user" string.  Each entry in
+`M-x q-con` talks to an existing q process the same way `q-qcon`
+does, but without executing an external qcon binary: Emacs opens the
+TCP connection itself.  This matters for the password - qcon receives
+it as a literal command-line argument, so it's visible to anyone on
+the machine running `ps`; `q-con` resolves it from auth-source only
+for the instant it takes to write it to the socket, and it never
+becomes a command-line argument at all.  `q-con` also supports TLS:
+prefix a host with `tcps://` - in `q-qcon-host`, a `q-connections`
+entry, or typed ad-hoc at the prompt - to connect over TLS instead of
+plain tcp.
+
+When prompted this way, `q-qcon` and `q-con` both offer named
+connections from `q-connections` as completion candidates, alongside
+the option of typing an ad-hoc "host:port:user" string.  Each entry in
 `q-connections` is a (NAME HOST PORT USER) list, letting you refer to
 a remote q server by a short name instead of retyping its
 host/port/user every time.  In every case, the password itself is

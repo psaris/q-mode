@@ -68,7 +68,7 @@
 
 ;; Use `M-x q' to start an inferior q shell.  Or use `M-x q-qcon' to
 ;; create an inferior qcon shell to communicate with an existing q
-;; process.  Both can be prefixed with the universal-argument `C-u` to
+;; process.  Both can be prefixed with the universal-argument `C-u' to
 ;; customize the arguments used to start the processes.
 
 ;; `M-x q-con' talks to an existing q process the same way `q-qcon'
@@ -78,20 +78,23 @@
 ;; anyone on the machine running `ps'; `q-con' resolves it from
 ;; auth-source only for the instant it takes to write it to the
 ;; socket, and it never becomes a command-line argument at all.
+;; `q-con' also supports TLS: prefix a host with `tcps://' - in
+;; `q-qcon-host', a `q-connections' entry, or typed ad-hoc at the
+;; prompt - to connect over TLS instead of plain tcp.
 
-;; When prompted this way, `q-qcon' offers named connections from
-;; `q-connections' as completion candidates, alongside the option of
-;; typing an ad-hoc "host:port:user" string.  Each entry in
-;; `q-connections' is a (NAME HOST PORT USER) list, letting you refer
-;; to a remote q server by a short name instead of retyping its
-;; host/port/user every time.  In every case, the password itself is
-;; never typed or stored in `q-connections' - it's always resolved
-;; from auth-source.  `.netrc'/`.authinfo' is the common case, but
-;; auth-source is backend-agnostic: anything registered as an
-;; `auth-source-backend' (e.g. the system Secret Service/macOS
-;; Keychain via `auth-source-pass' or `secrets.el', or a custom
-;; backend you write yourself) is consulted the same way, so the
-;; password need not live in a plaintext file at all.
+;; When prompted this way, `q-qcon' and `q-con' both offer named
+;; connections from `q-connections' as completion candidates,
+;; alongside the option of typing an ad-hoc "host:port:user" string.
+;; Each entry in `q-connections' is a (NAME HOST PORT USER) list,
+;; letting you refer to a remote q server by a short name instead of
+;; retyping its host/port/user every time.  In every case, the
+;; password itself is never typed or stored in `q-connections' - it's
+;; always resolved from auth-source.  `.netrc'/`.authinfo' is the
+;; common case, but auth-source is backend-agnostic: anything
+;; registered as an `auth-source-backend' (e.g. the system Secret
+;; Service/macOS Keychain via `auth-source-pass' or `secrets.el', or a
+;; custom backend you write yourself) is consulted the same way, so
+;; the password need not live in a plaintext file at all.
 
 ;; The first q[con] session opened becomes the activated buffer.
 ;; To open a new session and send code to the new buffer, it must be
@@ -216,7 +219,7 @@ since `q--connection-resolve-credentials' just calls
   :group 'q)
 
 (defcustom q-indent-step 1
-  "Length of indent used by `q-indent-line`.
+  "Length of indent used by `q-indent-line'.
 If nil, code is aligned to {}-, ()-, and []-groups.  Otherwise,
 each level is indented by this amount."
   :type '(choice (const nil) integer)
@@ -627,7 +630,7 @@ ad-hoc \"host:port:user\" string."
 
 (defun q--parse-host-scheme (host)
   "Parse HOST for a valid kdb+ protocol scheme.
-Returns a cons cell `(USE-TLS . CLEAN-HOST)`.  Throws a `user-error` if
+Returns a cons cell (USE-TLS . CLEAN-HOST).  Throws a `user-error' if
 an unsupported scheme is provided."
   (if (string-match "\\`\\([^:]+\\)://\\(.*\\)" host)
       (let ((scheme (downcase (match-string 1 host)))
@@ -635,8 +638,8 @@ an unsupported scheme is provided."
         (pcase scheme
           ("tcps" (cons t clean-host))
           ("tcp"  (cons nil clean-host))
-          (_ (user-error (concat "q-con: Unsupported protocol scheme \"%s://\"."
-                                 "  Use plain host names or tcp[s]://")
+          (_ (user-error (concat "Unsupported protocol scheme \"%s://\"; "
+                                 "use plain host names or tcp[s]://")
                          scheme))))
     ;; No "://" found, treat as plain host
     (cons nil host)))
@@ -733,13 +736,12 @@ interactive use, a prefix argument prompts for connection args,
 offering `q-connections' as completion candidates while still accepting
 an ad-hoc \"host:port:user\" string.
 
-Because the underlying protocol is one-shot - the q process replies
-and closes the connection for every single request, the same way qcon
-itself reconnects per request - this can't keep one persistent socket
-alive for the whole buffer the way a real inferior process would.
-Instead the buffer's process is a dummy placeholder that never sees any
-real traffic; every line sent opens, uses, and closes its own
-connection."
+Because the underlying protocol is one-shot - the connection is closed
+after the q process replies, the same way qcon itself reconnects per
+request - this can't keep one persistent socket alive for the whole
+buffer the way a real inferior process would.  Instead the buffer's
+process is a dummy placeholder that never sees any real traffic; every
+line sent opens, uses, and closes its own connection."
   (interactive (list (if current-prefix-arg
                          (q--connection-prompt-args)
                        (q-con-default-args))))
@@ -813,7 +815,7 @@ travels over a fresh one-shot network connection."
   (unless (stringp string)
     (user-error "Nothing to send"))
   (unless (q-shell-buffer-p q-active-buffer)
-    (user-error "No active q buffer; run `M-x q` or activate a q shell with `C-c M-RET`"))
+    (user-error "No active q buffer; run `M-x q' or activate a q shell with `C-c M-RET'"))
   (let ((msg (concat q-msg-prefix string q-msg-postfix)))
     (with-current-buffer q-active-buffer
       (unless comint-process-echoes
@@ -950,7 +952,7 @@ travels over a fresh one-shot network connection."
   "Jump to the Nth next stack-frame error in the active q shell buffer."
   (interactive "p")
   (unless (q-shell-buffer-p q-active-buffer)
-    (user-error "No active q buffer; run `M-x q` or activate a q shell with `C-c M-RET`"))
+    (user-error "No active q buffer; run `M-x q' or activate a q shell with `C-c M-RET'"))
   (setq next-error-last-buffer q-active-buffer)
   (next-error (or n 1)))
 
