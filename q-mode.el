@@ -329,18 +329,6 @@ integer, unlike the other `q-init-*' variables it sits alongside."
   :type 'string
   :group 'q-qcon)
 
-(defcustom q-con-timeout .1
-  "Seconds `q-con' waits for a reply to a one-shot query, at most.
-`q-con' opens a private TCP connection per query (mirroring how qcon
-itself reconnects for every request), reads whatever comes back from a
-single network read, and closes the connection - matching qcon's own
-behavior, including qcon's own limitation of only ever reading what a
-single read returns, which in practice is capped by the network MTU.
-This bounds how long `q-con' waits for that first data to arrive, so
-an unreachable or wedged server can't hang Emacs forever."
-  :type 'integer
-  :group 'q-qcon)
-
 (defun q-customize ()
   "Customize `q-mode'."
   (interactive)
@@ -683,11 +671,10 @@ never leaves Emacs any other way - unlike qcon, no external process is
 exec'd, so nothing about the connection, let alone the password, is
 ever visible to `ps'.
 
-Matches qcon's own behavior: blocks for up to `q-con-timeout' seconds
-for a single network read, then closes the connection - including
-qcon's own limitation that a reply is only ever as complete as what
-that one read returns, which in practice is capped by the network
-MTU."
+Matches qcon's own behavior: blocks for a single network read, then
+closes the connection - including qcon's own limitation that a reply is
+only ever as complete as what that one read returns, which in practice
+is capped by the network MTU."
   (let* ((resolved (q--connection-resolve-credentials host port user))
          (login (car resolved))
          (password (or (cdr resolved) ""))
@@ -703,7 +690,7 @@ MTU."
           (process-send-string
            proc (q--con-handshake-and-query login password query))
           (when (process-live-p proc)
-            (accept-process-output proc q-con-timeout))
+            (accept-process-output proc))
           (with-current-buffer output-buffer (buffer-string)))
       (when (and proc (process-live-p proc))
         (delete-process proc))
