@@ -433,7 +433,8 @@ any colon-splitting happens - splitting \"tcps://host:5000\" on \":\"
 first, without this, would misread \"tcps\" as HOST and \"//host\" as
 PORT.  A 4th field is rejected as an attempted password with a
 `user-error'; a matched entry always yields exactly three fields, so
-this can't misfire for it."
+this can't misfire for it.  An empty PORT is likewise rejected - a q
+connection always needs one, unlike a local q process."
   (let* ((choice (completing-read prompt (q--connection-names) nil nil nil nil default))
          (entry (assoc choice q-connections))
          (parsed (q--parse-host-scheme (if entry (nth 1 entry) choice)))
@@ -443,10 +444,13 @@ this can't misfire for it."
                    (split-string (cdr parsed) ":"))))
     (when (> (length fields) 3)
       (user-error
-       (concat "q-qcon: refusing typed password; typing a password here leaves "
+       (concat "Refusing typed password; typing a password here leaves "
                "it sitting in the minibuffer (and in `savehist' if enabled). "
                "Add an entry to your .netrc/.authinfo file instead")))
-    (list (car entry) (nth 0 fields) (or (nth 1 fields) "") (or (nth 2 fields) "") tls)))
+    (let ((port (or (nth 1 fields) "")))
+      (when (equal port "")
+        (user-error "A port is required (e.g. \"host:port\" or \"host:port:user\")"))
+      (list (car entry) (nth 0 fields) port (or (nth 2 fields) "") tls))))
 
 (defun q--qcon-resolve-args (host port user tls)
   "Resolve credentials for HOST/PORT/USER, returning (HOST PORT LOGIN PASSWORD).
