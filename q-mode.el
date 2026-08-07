@@ -393,13 +393,14 @@ Prompt with a list of live Q Shell buffers if called interactively."
 ;; from auth-source, at most once per connection attempt.
 
 (defun q--connection-default-args ()
-  "Return the default (HOST PORT USER ALIAS TLS) tuple.
-From the `q-qcon-*' variables.  ALIAS is always nil here, since no
-`q-connections' selection happens on this path."
+  "Return the default q connection args as a plist.
+Keys are :host :port :user :alias :tls, built from the `q-qcon-*'
+variables.  :alias is always nil here, since no `q-connections'
+selection happens on this path."
   (let* ((parsed (q--parse-host-scheme q-qcon-host))
          (tls (car parsed))
          (host (cdr parsed)))
-    (list host q-qcon-port q-qcon-user nil tls)))
+    (list :host host :port q-qcon-port :user q-qcon-user :alias nil :tls tls)))
 
 (defun q--connection-resolve-credentials (host port user)
   "Resolve a (LOGIN . PASSWORD) cons for HOST/PORT, given USER.
@@ -473,26 +474,27 @@ minibuffer prompt defaults."
           (unless (equal user "") (format ":%s" user))))
 
 (defun q-con-default-args ()
-  "Build the default (HOST PORT USER ALIAS TLS) tuple for `q-con'."
+  "Build the default q connection args plist for `q-con'.
+See `q--connection-default-args' for the shape."
   (q--connection-default-args))
 
 (defun q--connection-prompt-args ()
-  "Prompt for a q connection, returning a (HOST PORT USER ALIAS TLS) tuple.
-Offers `q-connections' as completion candidates alongside an ad-hoc
-\"host:port:user\" string.  The minibuffer default is built by parsing
-`q-qcon-host' for its scheme here, rather than reusing an
-already-scheme-stripped default tuple - so a configured tcps:// still
-shows in the default, and accepting it as-is preserves TLS instead of
-silently dropping it."
+  "Prompt for a q connection, returning a plist.
+Keys are :host :port :user :alias :tls (see `q--connection-default-args'
+for the shape).  Offers `q-connections' as completion candidates
+alongside an ad-hoc \"host:port:user\" string.  The minibuffer default
+is built by parsing `q-qcon-host' for its scheme here, rather than
+reusing an already-scheme-stripped default - so a configured tcps://
+still shows in the default, and accepting it as-is preserves TLS
+instead of silently dropping it."
   (let* ((parsed (q--parse-host-scheme q-qcon-host))
          (default (q--connection-display-args
                    (cdr parsed) q-qcon-port q-qcon-user (car parsed)))
          (result (q--connection-prompt
                   "q connection (name, or host:port:user): " default)))
-    ;; result is (NAME HOST PORT USER TLS); move NAME to the 4th slot,
-    ;; as ALIAS, so the shape matches `q--connection-default-args'.
+    ;; result is (NAME HOST PORT USER TLS); NAME becomes :alias.
     (cl-destructuring-bind (name host port user tls) result
-      (list host port user name tls))))
+      (list :host host :port port :user user :alias name :tls tls))))
 
 (defun q--setup-shell-buffer (process)
   "Set up current q shell buffer for PROCESS.
@@ -609,28 +611,30 @@ was just started here or already running from an earlier call."
     (get-buffer-process buffer)))
 
 ;;;###autoload
-(defun q-qcon (&optional args)
+(cl-defun q-qcon (&key host port (user "") alias tls)
   "Connect to a pre-existing q process.
-Optional argument ARGS is a (HOST PORT USER ALIAS TLS) list; the
-default comes from the `q-qcon-*' customization variables.  TLS is
-only used to warn that qcon doesn't support it - qcon always connects
-over plain tcp regardless.  In interactive use, a prefix argument
-directs this command to prompt for connection args, offering
-`q-connections' as completion candidates while still accepting an
-ad-hoc \"host:port:user\" string."
-  (interactive (list (if current-prefix-arg
-                         (q--connection-prompt-args)
-                       (q--connection-default-args))))
-  (cl-destructuring-bind (host port user alias tls) args
-    (cl-destructuring-bind (host port login password) (q--qcon-resolve-args host port user tls)
-      (let ((cmd-args (q--qcon-format-args host port login password))
-            (display-args (q--qcon-redact-args host port login password)))
-        (q--start-connection-buffer
-         (q--format-buffer-name :qcon host port alias)
-         (called-interactively-p 'any)
-         (format "q: starting qcon with command \"%s\"" (concat q-qcon-program " " display-args))
-         (lambda ()
-           (get-buffer-process (comint-exec (current-buffer) "qcon" q-qcon-program nil (list cmd-args)))))))))
+HOST, PORT, and USER identify the connection; the default for all
+three comes from the `q-qcon-*' customization variables.  ALIAS, when
+non-nil, is a matched `q-connections' entry name, shown in the buffer
+name.  TLS is only used to warn that qcon doesn't support it - qcon
+always connects over plain tcp regardless.  In interactive use, a
+prefix argument directs this command to prompt for connection args,
+offering `q-connections' as completion candidates while still accepting
+an ad-hoc \"host:port:user\" string."
+  (interactive
+   (if current-prefix-arg
+       (q--connection-prompt-args)
+     (q--connection-default-args)))
+  (cl-destructuring-bind (clean-host clean-port login password)
+      (q--qcon-resolve-args host port user tls)
+    (let ((cmd-args (q--qcon-format-args clean-host clean-port login password))
+          (display-args (q--qcon-redact-args clean-host clean-port login password)))
+      (q--start-connection-buffer
+       (q--format-buffer-name :qcon clean-host clean-port alias)
+       (called-interactively-p 'any)
+       (format "q: starting qcon with command \"%s\"" (concat q-qcon-program " " display-args))
+       (lambda ()
+         (get-buffer-process (comint-exec (current-buffer) "qcon" q-qcon-program nil (list cmd-args))))))))
 
 (defun q--parse-host-scheme (host)
   "Parse HOST for a valid kdb+ protocol scheme.
@@ -724,7 +728,7 @@ exactly where a real process's output would have landed."
     (comint-output-filter proc (concat formatted-reply prompt))))
 
 ;;;###autoload
-(defun q-con (&optional args)
+(cl-defun q-con (&key host port (user "") alias tls)
   "Connect to a pre-existing q process natively, without spawning qcon.
 Emacs opens the TCP[S] socket itself instead of executing an external
 qcon binary.  That matters for the password: qcon receives it as a
@@ -734,41 +738,43 @@ instant it takes to write it to the socket, and it never becomes a
 command-line argument to any process at all.  Also supports TLS, via a
 tcps:// scheme prefix on the host.
 
-Optional argument ARGS is a (HOST PORT USER ALIAS TLS) list; the
-default comes from the `q-qcon-*' customization variables.  In
-interactive use, a prefix argument prompts for connection args,
-offering `q-connections' as completion candidates while still accepting
-an ad-hoc \"host:port:user\" string.
+HOST, PORT, and USER identify the connection; the default for all
+three comes from the `q-qcon-*' customization variables.  ALIAS, when
+non-nil, is a matched `q-connections' entry name, shown in the buffer
+name.  In interactive use, a prefix argument prompts for connection
+args, offering `q-connections' as completion candidates while still
+accepting an ad-hoc \"host:port:user\" string.
 
-Because the underlying protocol is one-shot - the connection is closed
-after the q process replies, the same way qcon itself reconnects per
-request - this can't keep one persistent socket alive for the whole
-buffer the way a real inferior process would.  Instead the buffer's
-process is a dummy placeholder that never sees any real traffic; every
-line sent opens, uses, and closes its own connection."
-  (interactive (list (if current-prefix-arg
-                         (q--connection-prompt-args)
-                       (q-con-default-args))))
-  (cl-destructuring-bind (host port user alias tls) args
-    (let ((display-args (q--connection-display-args host port user tls)))
-      (q--start-connection-buffer
-       (q--format-buffer-name :con host port alias tls)
-       (called-interactively-p 'any)
-       (format "q: connecting natively to %s " display-args)
-       (lambda ()
-         (setq-local q--con-target (list host port user tls))
-         (setq-local comint-input-sender #'q--con-input-sender)
-         ;; A dummy process to keep comint happy, exactly as ielm does it -
-         ;; it never gets any real input.  `q--con-input-sender' bypasses
-         ;; it entirely and talks to the q process over its own one-shot
-         ;; connections instead.
-         (let ((process (condition-case nil
-                            (start-process "q-con" (current-buffer) "cat")
-                          (file-error (start-process "q-con" (current-buffer) "hexl")))))
-           (set-process-query-on-exit-flag process nil)
-           (set-process-filter process #'comint-output-filter)
-           (comint-output-filter process (q--con-prompt-text host port tls))
-           process))))))
+Because the underlying protocol is one-shot - the q process replies
+and closes the connection for every single request, the same way qcon
+itself reconnects per request - this can't keep one persistent socket
+alive for the whole buffer the way a real inferior process would.
+Instead the buffer's process is a dummy placeholder that never sees any
+real traffic; every line sent opens, uses, and closes its own
+connection."
+  (interactive
+   (if current-prefix-arg
+       (q--connection-prompt-args)
+     (q-con-default-args)))
+  (let ((display-args (q--connection-display-args host port user tls)))
+    (q--start-connection-buffer
+     (q--format-buffer-name :con host port alias tls)
+     (called-interactively-p 'any)
+     (format "q: connecting natively to %s " display-args)
+     (lambda ()
+       (setq-local q--con-target (list host port user tls))
+       (setq-local comint-input-sender #'q--con-input-sender)
+       ;; A dummy process to keep comint happy, exactly as ielm does it -
+       ;; it never gets any real input.  `q--con-input-sender' bypasses
+       ;; it entirely and talks to the q process over its own one-shot
+       ;; connections instead.
+       (let ((process (condition-case nil
+                          (start-process "q-con" (current-buffer) "cat")
+                        (file-error (start-process "q-con" (current-buffer) "hexl")))))
+         (set-process-query-on-exit-flag process nil)
+         (set-process-filter process #'comint-output-filter)
+         (comint-output-filter process (q--con-prompt-text host port tls))
+         process)))))
 
 (defun q-show-q-buffer ()
   "Switch to the active q process, or start a new one (passing in args)."
