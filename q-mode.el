@@ -79,7 +79,7 @@
 ;; auth-source only for the instant it takes to write it to the
 ;; socket, and it never becomes a command-line argument at all.
 ;; `q-con' also supports TLS: prefix a host with `tcps://' - in
-;; `q-qcon-host', a `q-connections' entry, or typed ad-hoc at the
+;; `q-connection-host', a `q-connections' entry, or typed ad-hoc at the
 ;; prompt - to connect over TLS instead of plain tcp.
 
 ;; When prompted this way, `q-qcon' and `q-con' both offer named
@@ -186,6 +186,8 @@
 
 (defgroup q nil "Major mode for editing q code." :group 'languages)
 
+(defgroup q-connection nil "Q remote connection arguments." :group 'q)
+
 (defcustom q-connections nil
   "Alist of named q connections.
 Each element is (NAME HOST PORT USER); USER may be \"\".  Password is
@@ -199,10 +201,15 @@ since `q--connection-resolve-credentials' just calls
                 :value-type (list (string :tag "host")
                                    (string :tag "port")
                                    (string :tag "user")))
-  :group 'q)
+  :group 'q-connection)
 
 (defcustom q-program "q"
   "Program name for invoking an inferior q."
+  :type 'file
+  :group 'q)
+
+(defcustom q-qcon-program "qcon"
+  "Program name for invoking an inferior qcon."
   :type 'file
   :group 'q)
 
@@ -306,31 +313,27 @@ integer, unlike the other `q-init-*' variables it sits alongside."
   :type 'file
   :group 'q-init)
 
-(defgroup q-qcon nil "Q qcon arguments." :group 'q)
-
-(defcustom q-qcon-program "qcon"
-  "Program name for invoking an inferior qcon."
-  :type 'file
-  :group 'q-qcon)
-
-(define-obsolete-variable-alias 'q-qcon-server 'q-qcon-host "0.2")
-(defcustom q-qcon-host ""
+(define-obsolete-variable-alias 'q-qcon-server 'q-connection-host "0.2")
+(define-obsolete-variable-alias 'q-qcon-host 'q-connection-host "0.2")
+(defcustom q-connection-host ""
   "Remote q server."
   :safe 'stringp
   :type 'string
-  :group 'q-qcon)
+  :group 'q-connection)
 
-(defcustom q-qcon-port 5000
+(define-obsolete-variable-alias 'q-qcon-port 'q-connection-port "0.2")
+(defcustom q-connection-port 5000
   "Port for remote q server."
   :safe 'integerp
   :type 'integer
-  :group 'q-qcon)
+  :group 'q-connection)
 
-(defcustom q-qcon-user ""
-  "If non-nil, qcon will log in to remote q server with this id."
+(define-obsolete-variable-alias 'q-qcon-user 'q-connection-user "0.2")
+(defcustom q-connection-user ""
+  "If non-nil, log in to the remote q server with this id."
   :safe 'stringp
   :type 'string
-  :group 'q-qcon)
+  :group 'q-connection)
 
 (defun q-customize ()
   "Customize `q-mode'."
@@ -394,13 +397,13 @@ Prompt with a list of live Q Shell buffers if called interactively."
 
 (defun q--connection-default-args ()
   "Return the default q connection args as a plist.
-Keys are :host :port :user :alias :tls, built from the `q-qcon-*'
+Keys are :host :port :user :alias :tls, built from the `q-connection-*'
 variables.  :alias is always nil here, since no `q-connections'
 selection happens on this path."
-  (let* ((parsed (q--parse-host-scheme q-qcon-host))
+  (let* ((parsed (q--parse-host-scheme q-connection-host))
          (tls (car parsed))
          (host (cdr parsed)))
-    (list :host host :port q-qcon-port :user q-qcon-user :alias nil :tls tls)))
+    (list :host host :port q-connection-port :user q-connection-user :alias nil :tls tls)))
 
 (defun q--connection-resolve-credentials (host port user)
   "Resolve a (LOGIN . PASSWORD) cons for HOST/PORT, given USER.
@@ -483,13 +486,13 @@ See `q--connection-default-args' for the shape."
 Keys are :host :port :user :alias :tls (see `q--connection-default-args'
 for the shape).  Offers `q-connections' as completion candidates
 alongside an ad-hoc \"host:port:user\" string.  The minibuffer default
-is built by parsing `q-qcon-host' for its scheme here, rather than
+is built by parsing `q-connection-host' for its scheme here, rather than
 reusing an already-scheme-stripped default - so a configured tcps://
 still shows in the default, and accepting it as-is preserves TLS
 instead of silently dropping it."
-  (let* ((parsed (q--parse-host-scheme q-qcon-host))
+  (let* ((parsed (q--parse-host-scheme q-connection-host))
          (default (q--connection-display-args
-                   (cdr parsed) q-qcon-port q-qcon-user (car parsed)))
+                   (cdr parsed) q-connection-port q-connection-user (car parsed)))
          (result (q--connection-prompt
                   "q connection (name, or host:port:user): " default)))
     ;; result is (NAME HOST PORT USER TLS); NAME becomes :alias.
@@ -614,7 +617,7 @@ was just started here or already running from an earlier call."
 (cl-defun q-qcon (&key host port (user "") alias tls)
   "Connect to a pre-existing q process.
 HOST, PORT, and USER identify the connection; the default for all
-three comes from the `q-qcon-*' customization variables.  ALIAS, when
+three comes from the `q-connection-*' customization variables.  ALIAS, when
 non-nil, is a matched `q-connections' entry name, shown in the buffer
 name.  TLS is only used to warn that qcon doesn't support it - qcon
 always connects over plain tcp regardless.  In interactive use, a
@@ -739,7 +742,7 @@ command-line argument to any process at all.  Also supports TLS, via a
 tcps:// scheme prefix on the host.
 
 HOST, PORT, and USER identify the connection; the default for all
-three comes from the `q-qcon-*' customization variables.  ALIAS, when
+three comes from the `q-connection-*' customization variables.  ALIAS, when
 non-nil, is a matched `q-connections' entry name, shown in the buffer
 name.  In interactive use, a prefix argument prompts for connection
 args, offering `q-connections' as completion candidates while still
