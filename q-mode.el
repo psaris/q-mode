@@ -1070,7 +1070,7 @@ file path.  Returns nil for unsaved buffers with no project."
 
 ;; \l load-target discovery
 
-(defconst q--load-command-regex "^\\\\l\\s-+\\([^ \t\n]+\\)"
+(defconst q--load-command-regex "^\\(?:\\\\\\|system\\s-+\"\\)l\\s-+:?\\([^ \t\n\"]+\\)"
   "Regex matching q load commands.")
 
 (defconst q--namespace-command-regex "^\\\\d\\s-+\\([^ \t\n]+\\)"
