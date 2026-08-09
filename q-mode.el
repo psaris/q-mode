@@ -456,14 +456,11 @@ connection always needs one, unlike a local q process."
         (user-error "A port is required (e.g. \"host:port\" or \"host:port:user\")"))
       (list (car entry) (nth 0 fields) port (or (nth 2 fields) "") tls))))
 
-(defun q--qcon-resolve-args (host port user tls)
-  "Resolve credentials for HOST/PORT/USER, returning (HOST PORT LOGIN PASSWORD).
-TLS only controls whether to warn that qcon doesn't support it - qcon
-always connects over plain tcp regardless."
+(defun q--qcon-resolve-args (host port user)
+  "Resolve credentials for HOST/PORT/USER, returning (HOST PORT LOGIN PASSWORD)."
   (let* ((resolved (q--connection-resolve-credentials host port user))
          (login (car resolved))
          (password (or (cdr resolved) "")))
-    (when tls (message "q: qcon does not support tcps protocol, continuing with tcp"))
     (list host port login password)))
 
 (defun q--connection-display-args (host port user &optional tls)
@@ -628,8 +625,9 @@ an ad-hoc \"host:port:user\" string."
    (if current-prefix-arg
        (q--connection-prompt-args)
      (q--connection-default-args)))
+  (when tls (message "q: qcon does not support tcps protocol, continuing with tcp"))
   (cl-destructuring-bind (clean-host clean-port login password)
-      (q--qcon-resolve-args host port user tls)
+      (q--qcon-resolve-args host port user)
     (let ((cmd-args (q--qcon-format-args clean-host clean-port login password))
           (display-args (q--qcon-redact-args clean-host clean-port login password)))
       (q--start-connection-buffer
