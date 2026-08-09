@@ -35,13 +35,19 @@
 ;;
 ;;  - interaction with inferior q[con] instance (comint-mode),
 ;;
-;;  - variable and function indexing (imenu),
+;;  - native Emacs qcon replacement supporting TLS (`q-con'),
+;;
+;;  - secure password retrieval (auth-source),
+;;
+;;  - named remote connections (q-connections),
+;;
+;;  - incremental, project-wide indexing (imenu, xref),
 ;;
 ;;  - completion at point (CAPF),
 ;;
 ;;  - signature help (eldoc),
 ;;
-;;  - definition/reference navigation (xref),
+;;  - current function in the mode line (which-function-mode),
 ;;
 ;;  - code folding (hideshow).
 ;;
