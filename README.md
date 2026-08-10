@@ -65,6 +65,15 @@ prefix a host with `tcps://` - in `q-connection-host`, a `q-connections`
 entry, or typed ad-hoc at the prompt - to connect over TLS instead of
 plain tcp.
 
+Because `q-con` opens a fresh connection for every query, sending a
+line, region, function, or the whole buffer each resolves the password
+from auth-source again - once per send, not once per session.
+`q-qcon` is the opposite: it authenticates once, when the buffer
+starts, and keeps that same qcon process running for every query
+after.  In practice auth-source caches its own lookups for the
+session, so this rarely means repeated prompts, but each `q-con` send
+is still a fresh connection and a fresh handshake.
+
 When prompted this way, `q-qcon` and `q-con` both offer named
 connections from `q-connections` as completion candidates, alongside
 the option of typing an ad-hoc "host:port:user" string.  Each entry in

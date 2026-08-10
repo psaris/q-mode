@@ -757,8 +757,11 @@ and closes the connection for every single request, the same way qcon
 itself reconnects per request - this can't keep one persistent socket
 alive for the whole buffer the way a real inferior process would.
 Instead the buffer's process is a dummy placeholder that never sees any
-real traffic; every line sent opens, uses, and closes its own
-connection."
+real traffic; every send - a line, region, function, or the whole
+buffer - opens, uses, and closes its own connection, and resolves the
+password from auth-source again each time.  `q-qcon' is the opposite:
+it authenticates once, when the buffer starts, and reuses that same
+qcon process for every query after."
   (interactive
    (if current-prefix-arg
        (q--connection-prompt-args)
