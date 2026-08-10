@@ -76,7 +76,7 @@ is still a fresh connection and a fresh handshake.
 
 When prompted this way, `q-qcon` and `q-con` both offer named
 connections from `q-connections` as completion candidates, alongside
-the option of typing an ad-hoc "host:port:user" string.  Each entry in
+the option of typing an ad-hoc "host:port[:user]" string.  Each entry in
 `q-connections` is a (NAME HOST PORT USER) list, letting you refer to
 a remote q server by a short name instead of retyping its
 host/port/user every time.  In every case, the password itself is

@@ -90,7 +90,7 @@
 
 ;; When prompted this way, `q-qcon' and `q-con' both offer named
 ;; connections from `q-connections' as completion candidates,
-;; alongside the option of typing an ad-hoc "host:port:user" string.
+;; alongside the option of typing an ad-hoc "host:port[:user]" string.
 ;; Each entry in `q-connections' is a (NAME HOST PORT USER) list,
 ;; letting you refer to a remote q server by a short name instead of
 ;; retyping its host/port/user every time.  In every case, the
@@ -459,7 +459,7 @@ connection always needs one, unlike a local q process."
                "Add an entry to your .netrc/.authinfo file instead")))
     (let ((port (or (nth 1 fields) "")))
       (when (equal port "")
-        (user-error "A port is required (e.g. \"host:port\" or \"host:port:user\")"))
+        (user-error "A port is required (e.g. \"host:port[:user]\")"))
       (list (car entry) (nth 0 fields) port (or (nth 2 fields) "") tls))))
 
 (defun q--qcon-resolve-args (host port user)
@@ -488,7 +488,7 @@ See `q--connection-default-args' for the shape."
   "Prompt for a q connection, returning a plist.
 Keys are :host :port :user :alias :tls (see `q--connection-default-args'
 for the shape).  Offers `q-connections' as completion candidates
-alongside an ad-hoc \"host:port:user\" string.  The minibuffer default
+alongside an ad-hoc \"host:port[:user]\" string.  The minibuffer default
 is built by parsing `q-connection-host' for its scheme here, rather than
 reusing an already-scheme-stripped default - so a configured tcps://
 still shows in the default, and accepting it as-is preserves TLS
@@ -497,7 +497,7 @@ instead of silently dropping it."
          (default (q--connection-display-args
                    (cdr parsed) q-connection-port q-connection-user (car parsed)))
          (result (q--connection-prompt
-                  "q connection (name, or host:port:user): " default)))
+                  "q connection (name, or host:port[:user]): " default)))
     ;; result is (NAME HOST PORT USER TLS); NAME becomes :alias.
     (cl-destructuring-bind (name host port user tls) result
       (list :host host :port port :user user :alias name :tls tls))))
@@ -626,7 +626,7 @@ name.  TLS is only used to warn that qcon doesn't support it - qcon
 always connects over plain tcp regardless.  In interactive use, a
 prefix argument directs this command to prompt for connection args,
 offering `q-connections' as completion candidates while still accepting
-an ad-hoc \"host:port:user\" string."
+an ad-hoc \"host:port[:user]\" string."
   (interactive
    (if current-prefix-arg
        (q--connection-prompt-args)
@@ -750,7 +750,7 @@ three comes from the `q-connection-*' customization variables.  ALIAS, when
 non-nil, is a matched `q-connections' entry name, shown in the buffer
 name.  In interactive use, a prefix argument prompts for connection
 args, offering `q-connections' as completion candidates while still
-accepting an ad-hoc \"host:port:user\" string.
+accepting an ad-hoc \"host:port[:user]\" string.
 
 Because the underlying protocol is one-shot - the q process replies
 and closes the connection for every single request, the same way qcon
