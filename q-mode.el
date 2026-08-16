@@ -719,59 +719,114 @@ QUERY is the q expression to evaluate. A newline is unconditionally
 appended to QUERY."
   (concat login ":" password "\0" query "\n"))
 
-(defun q--con-one-shot-query (host port user tls query)
-  "Open one TCP[S] connection to HOST:PORT, run QUERY.
-Returns QUERY's plain text response.  TLS decides whether the socket is
-opened with `:type' `tls' or `plain'.  USER is resolved to a
-login/password pair immediately before it's written to the socket, and
-never leaves Emacs any other way - unlike qcon, no external process is
-exec'd, so nothing about the connection, let alone the password, is
-ever visible to `ps'.
+(defvar-local q--con-inflight nil
+  "The network process for the in-flight `q-con' request.
+Nil if idle.  See `q--con-input-sender'.")
 
-Matches qcon's own behavior: blocks for a single network read, then
-closes the connection - including qcon's own limitation that a reply is
-only ever as complete as what that one read returns, which in practice
-is capped by the network MTU."
-  (let* ((resolved (q--connection-resolve-credentials host port user))
-         (login (car resolved))
-         (password (or (cdr resolved) ""))
-         (output-buffer (generate-new-buffer " *q-con-oneshot*"))
-         proc)
-    (unwind-protect
-        (progn
-          (setq proc (open-network-stream "q-con-oneshot" output-buffer
-                                          host (q--con-port-number port)
+(defvar-local q--con-dispatch-queue nil
+  "FIFO of `q-con' query strings not yet sent.
+Each query is sent after the prior response is received.  Using the queue
+instead of blocking, allows queries to queue up and prevents Emacs from
+blocking.")
+
+(defun q--con-format-reply (reply)
+  "Ensure REPLY ends with a newline, unless REPLY is empty."
+  (if (and (not (string-empty-p reply)) (not (string-suffix-p "\n" reply)))
+      (concat reply "\n")
+    reply))
+
+(defun q--output-filter (buffer text)
+  "Call `comint-output-filter' for BUFFER with TEXT."
+  (let ((proc (get-buffer-process buffer)))
+    (when proc
+      (comint-output-filter
+       proc (concat text
+                    (q--con-prompt-text (nth 0 q--con-target)
+                                        (nth 1 q--con-target)
+                                        (nth 3 q--con-target)))))))
+
+(defun q--con-finish (shell-buffer text)
+  "Insert TEXT plus a fresh prompt into SHELL-BUFFER.
+Then send next query (if any) from `q--con-dispatch-queue'."
+  (when (buffer-live-p shell-buffer)
+    (with-current-buffer shell-buffer
+      (setq q--con-inflight nil)
+      (q--output-filter shell-buffer text)
+      (q--con-dispatch-next))))
+
+(defun q--con-filter (shell-buffer)
+  "Return a process filter for `q-con' SHELL-BUFFER.
+Captures the first chunk as a `q-con' reply and closes connection."
+  (lambda (proc chunk)
+    (unless (process-get proc 'q-con-handled)
+      (process-put proc 'q-con-handled t)
+      (delete-process proc)
+      (q--con-finish shell-buffer (q--con-format-reply chunk)))))
+
+(defun q--con-sentinel (shell-buffer)
+  "Return a process sentinel reporting `q-con' failures for SHELL-BUFFER.
+Can be a TLS handshake failure, host unreachable - any `process-status'
+change with no chunk ever having arrived.  A normal reply is already
+fully handled, including `delete-process', by `q--con-filter' before
+this ever gets a chance to run; the `q-con-handled' process property is
+how it tells the two cases apart."
+  (lambda (proc event)
+    (unless (process-get proc 'q-con-handled)
+      (process-put proc 'q-con-handled t)
+      (q--con-finish shell-buffer
+                     (q--con-format-reply
+                      (format "q-con error: %s" (string-trim event)))))))
+
+(defun q--con-start-query (shell-buffer query)
+  "Open an async connection to SHELL-BUFFER's `q--con-target' and send QUERY.
+Returns the network process.  USER is resolved to a login/password
+pair immediately before it's written to the socket and never leaves
+Emacs any other way - unlike qcon, no external process is exec'd, so
+nothing about the connection, let alone the password, is ever visible
+to `ps'; see `q--connection-resolve-credentials'."
+  (cl-destructuring-bind (host port user tls) q--con-target
+    (condition-case err
+        (let* ((resolved (q--connection-resolve-credentials host port user))
+               (login (car resolved))
+               (password (or (cdr resolved) ""))
+               (proc (open-network-stream "q-con" nil host (q--con-port-number port)
                                           :type (if tls 'tls 'plain)
-                                          :coding 'binary))
-          (set-process-sentinel proc #'ignore)
-          (process-send-string
-           proc (q--con-handshake-and-query login password query))
-          (when (process-live-p proc)
-            (accept-process-output proc))
-          (with-current-buffer output-buffer (buffer-string)))
-      (when (and proc (process-live-p proc))
-        (delete-process proc))
-      (kill-buffer output-buffer))))
+                                          :coding 'binary)))
+          (set-process-filter proc (q--con-filter shell-buffer))
+          (set-process-sentinel proc (q--con-sentinel shell-buffer))
+          (process-send-string proc (q--con-handshake-and-query login password query))
+          proc)
+      (error
+       (q--con-finish shell-buffer
+                      (q--con-format-reply (format "q-con error: %s" (error-message-string err))))
+       nil))))
 
-(defun q--con-input-sender (proc string)
-  "Comint input sender used to answer queries in a q-con buffer.
-PROC is a dummy placeholder process kept only so comint-mode considers
-the buffer to have a live process; STRING is the query.  Ignores PROC
-for actual I/O and instead runs a one-shot query against the
-buffer-local `q--con-target', then inserts the reply - followed by a
-fresh \"host:port>\" prompt, so `comint-prompt-regexp' keeps matching -
-exactly where a real process's output would have landed."
-  (let* ((prompt (q--con-prompt-text (nth 0 q--con-target) (nth 1 q--con-target)
-                                     (nth 3 q--con-target)))
-         (reply (condition-case err
-                    (apply #'q--con-one-shot-query (append q--con-target (list string)))
-                  (error (format "q-con error: %s" (error-message-string err)))))
-         ;; Ensure reply ends with a newline if non-empty and missing one
-         (formatted-reply (if (and (not (string-empty-p reply))
-                                   (not (string-suffix-p "\n" reply)))
-                              (concat reply "\n")
-                            reply)))
-    (comint-output-filter proc (concat formatted-reply prompt))))
+(defun q--con-dispatch-next ()
+  "Send next `q-con' request if none are already in flight."
+  (when (and (not q--con-inflight) q--con-dispatch-queue)
+    (setq q--con-inflight (q--con-start-query (current-buffer) (pop q--con-dispatch-queue)))))
+
+(defun q--con-input-sender (_proc string)
+  "Comint input sender used to answer queries in a `q-con' buffer.
+Never blocks: appends STRING to `q--con-dispatch-queue' and starts it
+immediately via `q--con-dispatch-next' if nothing is already in flight;
+otherwise it waits its turn.  Ignores PROC - the dummy placeholder
+process kept only so `comint-mode' considers the buffer to have a live
+process."
+  (setq q--con-dispatch-queue (nconc q--con-dispatch-queue (list string)))
+  (q--con-dispatch-next))
+
+(defun q--con-abort ()
+  "Abort the in-flight `q-con' request, if any.
+Drop everything queued behind it."
+  (interactive)
+  (when q--con-inflight
+    (process-put q--con-inflight 'q-con-handled t)
+    (delete-process q--con-inflight)
+    (setq q--con-inflight nil))
+  (setq q--con-dispatch-queue nil)
+  (q--reply-queue-clear)
+  (q--output-filter (current-buffer) "\nConnection aborted.\n"))
 
 ;;;###autoload
 (cl-defun q-con (&key host port (user "") alias tls)
@@ -791,16 +846,16 @@ name.  In interactive use, a prefix argument prompts for connection
 args, offering `q-connections' as completion candidates while still
 accepting an ad-hoc \"host:port[:user]\" string.
 
-Because the underlying protocol is one-shot - the q process replies
-and closes the connection for every single request, the same way qcon
-itself reconnects per request - this can't keep one persistent socket
-alive for the whole buffer the way a real inferior process would.
-Instead the buffer's process is a dummy placeholder that never sees any
-real traffic; every send - a line, region, function, or the whole
-buffer - opens, uses, and closes its own connection, and resolves the
-password from auth-source again each time.  `q-qcon' is the opposite:
-it authenticates once, when the buffer starts, and reuses that same
-qcon process for every query after."
+Because the underlying protocol is one-shot - the q process replies and
+the connection is closed for every single request - the same as qcon -
+this can't keep one persistent socket alive for the whole buffer the way
+a real inferior process would.  Instead the buffer's process is a dummy
+placeholder that never sees any real traffic; every send - a line,
+region, function, or the whole buffer - opens its own connection and
+resolves the password from auth-source again each time.  Sending never
+blocks Emacs: queries wait in `q--con-dispatch-queue' and are sent one
+at a time, in order, as each previous one finishes - see
+`q--con-input-sender'.
   (interactive
    (if current-prefix-arg
        (q--connection-prompt-args)
@@ -2115,6 +2170,7 @@ This function never triggers I/O; it only reads from cached data."
   "Major mode for interacting with a q interpreter."
   (q--setup-font-lock)
   (add-hook 'comint-output-filter-functions 'comint-strip-ctrl-m nil t)
+  (add-hook 'comint-output-filter-functions #'q--reply-filter nil t)
   (setq-local comint-prompt-regexp "^\\(q)+\\|\\(?:tcps://\\)?[^:]*:[0-9]+>\\)")
   ;; Make q stack-trace file/line entries clickable in REPL output.
   (add-to-list 'compilation-error-regexp-alist-alist
