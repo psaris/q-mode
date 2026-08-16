@@ -660,7 +660,7 @@ an unsupported scheme is provided."
     (cons nil host)))
 
 (defun q--con-prompt-text (host port tls)
-  "Return the \"[tcps://]host:port>\" prompt text for a `q-con' buffer."
+  "Return the `q-con' buffer prompt for HOST, PORT and TLS flag."
   (concat (and tls "tcps://") (format "%s:%s>" host port)))
 
 (defvar-local q--con-target nil
