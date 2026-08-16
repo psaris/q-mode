@@ -277,6 +277,24 @@ in `q-shell-mode' are accepted."
   :type 'boolean
   :group 'q)
 
+(defcustom q-eval-prefix "(::) "
+  "Prefixed onto every expression `q-eval-symbol/line/region' sends.
+Empty string disables this entirely.  The default, `(::) ', is q's
+identity function and causes the result (even assignment) to be
+displayed."
+  :safe 'stringp
+  :type 'string
+  :group 'q)
+
+(defun q--eval-prefix (string)
+  "Prefix STRING with `q-eval-prefix'.
+If STRING is empty or a `\\'-prefixed system command, STRING is returned
+unmodified."
+  (if (and (not (string-empty-p string))
+           (not (string-prefix-p "\\" string)))
+      (concat q-eval-prefix string)
+    string))
+
 (defcustom q-rescan-idle-delay 1.0
   "Seconds of idle time before rescanning after a save.
 Debounces rapid successive saves and defers the check for out-of-band
@@ -849,7 +867,7 @@ travels over a fresh one-shot network connection."
 (defun q-eval-region (start end)
   "Send the region between START and END to the inferior q[con] process."
   (interactive "r")
-  (q-send-string (q-strip (buffer-substring start end)))
+  (q-send-string (q--eval-prefix (q-strip (buffer-substring start end))))
   (setq deactivate-mark t))
 
 (defun q-eval-line ()
@@ -866,10 +884,10 @@ travels over a fresh one-shot network connection."
 (defun q-eval-symbol ()
   "Send the symbol at point to the inferior q[con] process."
   (interactive)
-  (let ((symbol (thing-at-point 'symbol)))
-    (unless symbol
+  (let ((bounds (bounds-of-thing-at-point 'symbol)))
+    (unless bounds
       (user-error "No symbol at point"))
-    (q-send-string symbol)))
+    (q-eval-region (car bounds) (cdr bounds))))
 
 (defun q-eval-buffer ()
   "Load current buffer into the inferior q[con] process."
@@ -929,11 +947,11 @@ travels over a fresh one-shot network connection."
       (save-excursion
         (goto-char (line-end-position))          ; go to end of line
         (let ((start (re-search-backward (concat "^" q-function-regex))) ; find beginning of function
-              (end   (re-search-forward ":")) ; find end of function name
-              (fun   (thing-at-point 'sexp))) ; find function body
-          (unless fun
+              (_   (re-search-forward ":")) ; find end of function name
+              (bounds   (bounds-of-thing-at-point 'sexp))) ; find function body
+          (unless bounds
             (user-error "Could not parse function body"))
-          (q-send-string (q-strip (concat (buffer-substring start end) fun)))))
+          (q-eval-region start (cdr bounds))))
     (search-failed
      (user-error "No function found around point"))))
 
