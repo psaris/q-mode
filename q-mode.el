@@ -609,7 +609,7 @@ anywhere the real password shouldn't appear - buffer names, messages."
   (concat (format "%s:%s" host port)
           (unless (equal user "") (format ":%s:****" user))))
 
-(defun q--start-connection-buffer (buffer-name interactive-call message start-process-fn)
+(defun q--start-connection-buffer (buffer-name interactive-call message start-process-fn &optional mode)
   "Shared buffer-management core for starting or reusing a q connection.
 BUFFER-NAME is the buffer to create or reuse.  INTERACTIVE-CALL is
 whether the calling command was itself invoked interactively -
@@ -617,18 +617,19 @@ whether the calling command was itself invoked interactively -
 function is never the interactive entry point, so the caller passes its
 own answer through.  MESSAGE is echoed with `message' when a new
 process is actually started.  START-PROCESS-FN is called with no
-arguments, inside the buffer, with `q-shell-mode' already turned on and
-`comint-process-echoes' already set to nil; it must start and return the
-buffer's process - this is the only part that differs between callers,
-e.g. an inferior process versus a dummy placeholder paired with a
-custom input sender.  Always returns BUFFER-NAME's process, whether it
-was just started here or already running from an earlier call."
+arguments, inside the buffer, with MODE (default `q-shell-mode') already
+turned on and `comint-process-echoes' already set to nil; it must start
+and return the buffer's process - this is the only part that differs
+between callers, e.g. an inferior process versus a dummy placeholder
+paired with a custom input sender.  Always returns BUFFER-NAME's
+process, whether it was just started here or already running from an
+earlier call."
   (let ((buffer (get-buffer-create buffer-name)))
     (when interactive-call (pop-to-buffer buffer))
     (when (or current-prefix-arg (not (q-shell-buffer-p buffer)))
       (with-current-buffer buffer
         (message "%s" message)
-        (q-shell-mode)
+        (funcall (or mode #'q-shell-mode))
         (setq comint-process-echoes nil)
         (q--setup-shell-buffer (funcall start-process-fn))))
     (q-activate-buffer buffer)
