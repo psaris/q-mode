@@ -190,6 +190,26 @@
 ;; local variable for the flymake-dedicated q process
 (defvar-local q--flymake-proc nil)
 
+;; local to each q-shell-mode buffer: pending replies awaiting a match, FIFO.
+;; Each entry is (SOURCE-BEG SOURCE-END REPLY-START-MARKER):
+;;   SOURCE-BEG/END     - span of source-buffer text that produced the
+;;                        request, or both nil if none was given - see
+;;                        `q-send-string'.  Passed through verbatim to
+;;                        `q-reply-functions'; this file attaches no
+;;                        meaning to it beyond that.
+;;   REPLY-START-MARKER - where in this shell buffer the reply begins,
+;;                        i.e. point-max at the moment the request was sent.
+;; See `q-send-string' (producer) and `q--reply-filter' (consumer).
+(defvar-local q--reply-queue nil)
+
+(defun q--reply-queue-clear ()
+  "Discard every entry in `q--reply-queue', releasing its markers.
+Used wherever pending replies can no longer be trusted to arrive, or
+to arrive in order: on process death (`q-process-sentinel')."
+  (dolist (entry q--reply-queue)
+    (dolist (marker entry) (when marker (set-marker marker nil))))
+  (setq q--reply-queue nil))
+
 (defgroup q nil "Major mode for editing q code." :group 'languages)
 
 (defgroup q-connection nil "Q remote connection arguments." :group 'q)
@@ -833,7 +853,9 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
         (goto-char (point-max))
-        (insert-before-markers text)))))
+        (insert-before-markers text)
+        ;; Any queued replies will never arrive now.
+        (q--reply-queue-clear)))))
 
 (defun q-strip (text)
   "Strip TEXT of all trailing comments, newlines and excessive whitespace.
@@ -844,31 +866,65 @@ The order of operations matters and must not be rearranged."
   (setq text (replace-regexp-in-string "\n[ \t]+" "" text t t)) ; fold functions
   text)
 
-(defun q-send-string (string)
+(defun q-send-string (string &optional source-span)
   "Send STRING to the inferior q process stored in `q-active-buffer'.
 Goes through the buffer-local `comint-input-sender' rather than
 hardcoding `comint-simple-send', so this works unchanged for a real
 inferior q or qcon process, and also for a `q-con' buffer, where
 `comint-input-sender' is `q--con-input-sender' and STRING instead
-travels over a fresh one-shot network connection."
+travels over a fresh one-shot network connection.
+
+SOURCE-SPAN, if non-nil, is a (BEG . END) pair of positions in the
+calling \(source\) buffer describing where STRING came from - see
+`q--eval-source-span'.  Once a reply arrives, `q--reply-filter' runs
+`q-reply-functions' with the reply text and markers at BEG and END (or
+both nil, if SOURCE-SPAN was nil)."
   (unless (stringp string)
     (user-error "Nothing to send"))
   (unless (q-shell-buffer-p q-active-buffer)
     (user-error "No active q buffer; run `M-x q' or activate a q shell with `C-c M-RET'"))
-  (let ((msg (concat q-msg-prefix string q-msg-postfix)))
+  (let* ((msg (concat q-msg-prefix string q-msg-postfix))
+         (source-beg (and source-span (copy-marker (car source-span))))
+         (source-end (and source-span (copy-marker (cdr source-span)))))
     (with-current-buffer q-active-buffer
       (unless comint-process-echoes
         (goto-char (point-max))
         (insert-before-markers (concat msg "\n")))
+      ;; Always queue, even with no span, so FIFO order can't desync
+      ;; between spanned and unspanned sends interleaved on one
+      ;; connection - e.g. `q-eval-buffer' (no span) followed by
+      ;; `q-eval-line' (spanned): both need an entry, in order, or the
+      ;; second reply would be matched to the first's entry.
+      (setq q--reply-queue
+            (nconc q--reply-queue
+                   (list (list source-beg source-end (copy-marker (point-max))))))
       (funcall comint-input-sender (get-buffer-process q-active-buffer) msg)))
   ;; Allow `M-g n' (and `q-next-error'/`C-c `') from source buffers.
   (setq next-error-last-buffer q-active-buffer)
   (when (equal current-prefix-arg '(16)) (q-show-q-buffer)))
 
+(defvar q-reply-functions nil
+  "Hook run when a reply to a `q-send-string' call arrives.
+Each function is called with three arguments: REPLY, the reply text;
+and SOURCE-BEG and SOURCE-END, markers for the span of source-buffer
+text that produced the request, or both nil if `q-send-string' was
+called with no SOURCE-SPAN.  Runs in the shell buffer the reply
+arrived in, not the source buffer - a function that needs the source
+buffer should get it from `(marker-buffer source-beg)' and check it is
+still live before doing anything with it.")
+
+(defun q--eval-source-span (start end)
+  "Return (BEG . END) source positions spanning START..END.
+BEG is the beginning of the line containing START; END is the end of
+the line containing END."
+  (cons (save-excursion (goto-char start) (line-beginning-position))
+        (save-excursion (goto-char end) (line-end-position))))
+
 (defun q-eval-region (start end)
   "Send the region between START and END to the inferior q[con] process."
   (interactive "r")
-  (q-send-string (q--eval-prefix (q-strip (buffer-substring start end))))
+  (q-send-string (q--eval-prefix (q-strip (buffer-substring start end)))
+                 (q--eval-source-span start end))
   (setq deactivate-mark t))
 
 (defun q-eval-line ()
@@ -891,10 +947,13 @@ travels over a fresh one-shot network connection."
     (q-eval-region (car bounds) (cdr bounds))))
 
 (defun q-eval-buffer ()
-  "Load current buffer into the inferior q[con] process."
+  "Load current buffer into the inferior q[con] process.
+Sends via `q-send-string' directly rather than `q-eval-region', so
+this passes no source span - there's no single well-defined
+provenance region for evaluating an entire buffer the way there is for
+one line, symbol, or function."
   (interactive)
-  (q-eval-region (point-min) (point-max)))
-
+  (q-send-string (q-strip (buffer-substring (point-min) (point-max)))))
 
 (defconst q-symbol-regex
   "`\\(?:\\(?:\\w\\|[.]\\)\\(?:\\w\\|[_.]\\)*\\)?"
@@ -1005,6 +1064,33 @@ With a prefix argument FORCE, re-scan all files regardless of mtime."
   (q--do-full-rescan (current-buffer)
                      (if force "forced rescan" "manual rescan")
                      t))
+
+;; reply matching
+;;
+;; `q-send-string' pushes a (source-beg source-end reply-start-marker)
+;; entry onto `q--reply-queue' for every send.  `q--reply-filter' runs on
+;; `comint-output-filter-functions' in every q-shell/q-con/q-qcon buffer
+;; and watches for the next prompt; once one appears, the oldest queued
+;; reply is known to be complete, is popped off, and `q-reply-functions'
+;; is run with the reply text and SOURCE-BEG/SOURCE-END.
+
+(defun q--reply-filter (_output)
+  "Comint output filter matching completed replies to `q--reply-queue'.
+Runs after every chunk of process output is inserted into the current
+\(shell\) buffer."
+  (when q--reply-queue
+    (let* ((proc (get-buffer-process (current-buffer)))
+           (reply-end (and proc
+                           (save-excursion
+                             (goto-char (process-mark proc))
+                             (forward-line 0)
+                             (and (looking-at-p comint-prompt-regexp) (point))))))
+      (when reply-end
+        (cl-destructuring-bind (source-beg source-end reply-start) (pop q--reply-queue)
+          (let ((reply (string-trim
+                        (buffer-substring-no-properties reply-start reply-end))))
+            (set-marker reply-start nil)
+            (run-hook-with-args 'q-reply-functions reply source-beg source-end)))))))
 
 (defun q--setup-font-lock ()
   "Set up q syntax highlighting in the current buffer.
