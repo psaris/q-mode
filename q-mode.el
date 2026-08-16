@@ -629,7 +629,7 @@ anywhere the real password shouldn't appear - buffer names, messages."
   (concat (format "%s:%s" host port)
           (unless (equal user "") (format ":%s:****" user))))
 
-(defun q--start-connection-buffer (buffer-name interactive-call message start-process-fn &optional mode)
+(defun q--start-connection-buffer (buffer-name interactive-call message start-process-fn mode)
   "Shared buffer-management core for starting or reusing a q connection.
 BUFFER-NAME is the buffer to create or reuse.  INTERACTIVE-CALL is
 whether the calling command was itself invoked interactively -
@@ -680,7 +680,8 @@ an ad-hoc \"host:port[:user]\" string."
        (called-interactively-p 'any)
        (format "q: starting qcon with command \"%s\"" (concat q-qcon-program " " display-args))
        (lambda ()
-         (get-buffer-process (comint-exec (current-buffer) "qcon" q-qcon-program nil (list cmd-args))))))))
+         (get-buffer-process (comint-exec (current-buffer) "qcon" q-qcon-program nil (list cmd-args))))
+       #'q-qcon-mode))))
 
 (defun q--parse-host-scheme (host)
   "Parse HOST for a valid kdb+ protocol scheme.
@@ -855,7 +856,8 @@ region, function, or the whole buffer - opens its own connection and
 resolves the password from auth-source again each time.  Sending never
 blocks Emacs: queries wait in `q--con-dispatch-queue' and are sent one
 at a time, in order, as each previous one finishes - see
-`q--con-input-sender'.
+`q--con-input-sender'.  An in-flight request can be aborted with
+\\[q--con-abort] bound in `q-con-shell-mode'."
   (interactive
    (if current-prefix-arg
        (q--connection-prompt-args)
@@ -878,7 +880,8 @@ at a time, in order, as each previous one finishes - see
          (set-process-query-on-exit-flag process nil)
          (set-process-filter process #'comint-output-filter)
          (comint-output-filter process (q--con-prompt-text host port tls))
-         process)))))
+         process))
+     #'q-con-mode)))
 
 (defun q-show-q-buffer ()
   "Switch to the active q process, or start a new one (passing in args)."
@@ -2179,6 +2182,16 @@ This function never triggers I/O; it only reads from cached data."
               (cons 'q-stack-frame compilation-error-regexp-alist))
   (compilation-shell-minor-mode 1)
   (setq-local comint-process-echoes nil))
+
+(define-derived-mode q-con-mode q-shell-mode "Q-Con"
+  "Major mode for a `q-con' buffer.
+A native Emacs connection to a remote q process.")
+
+(define-key q-con-mode-map (kbd "C-c C-c") 'q--con-abort)
+
+(define-derived-mode q-qcon-mode q-shell-mode "Q-QCon"
+  "Major mode for a `q-qcon' buffer.
+A qcon subprocess relaying to a remote q process.")
 
 (defconst q-imenu-generic-expression
   (list
