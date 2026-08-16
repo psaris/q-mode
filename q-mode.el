@@ -2010,7 +2010,7 @@ This function never triggers I/O; it only reads from cached data."
   "Major mode for interacting with a q interpreter."
   (q--setup-font-lock)
   (add-hook 'comint-output-filter-functions 'comint-strip-ctrl-m nil t)
-  (setq-local comint-prompt-regexp "^\\(q)+\\|[^:]*:[0-9]+>\\)")
+  (setq-local comint-prompt-regexp "^\\(q)+\\|\\(?:tcps://\\)?[^:]*:[0-9]+>\\)")
   ;; Make q stack-trace file/line entries clickable in REPL output.
   (add-to-list 'compilation-error-regexp-alist-alist
                `(q-stack-frame ,(concat "^" q--stack-frame-regexp) 1 2))
