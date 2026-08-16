@@ -987,6 +987,14 @@ With a prefix argument FORCE, re-scan all files regardless of mtime."
                      (if force "forced rescan" "manual rescan")
                      t))
 
+(defun q--setup-font-lock ()
+  "Set up q syntax highlighting in the current buffer.
+Set the syntax table, `font-lock-defaults', and the
+`syntax-propertize-function'."
+  (set-syntax-table q-mode-syntax-table)
+  (setq-local font-lock-defaults q-font-lock-defaults)
+  (setq-local syntax-propertize-function #'q-syntax-propertize))
+
 ;; keymaps
 
 (defvar q-shell-mode-map
@@ -2000,11 +2008,9 @@ This function never triggers I/O; it only reads from cached data."
 ;;;###autoload
 (define-derived-mode q-shell-mode comint-mode "Q-Shell"
   "Major mode for interacting with a q interpreter."
-  :syntax-table q-mode-syntax-table
+  (q--setup-font-lock)
   (add-hook 'comint-output-filter-functions 'comint-strip-ctrl-m nil t)
   (setq-local comint-prompt-regexp "^\\(q)+\\|[^:]*:[0-9]+>\\)")
-  (setq-local font-lock-defaults q-font-lock-defaults)
-  (setq-local syntax-propertize-function #'q-syntax-propertize)
   ;; Make q stack-trace file/line entries clickable in REPL output.
   (add-to-list 'compilation-error-regexp-alist-alist
                `(q-stack-frame ,(concat "^" q--stack-frame-regexp) 1 2))
@@ -2047,8 +2053,7 @@ Used by `which-function-mode' and `add-log-current-defun-function'."
 (define-derived-mode q-mode prog-mode "Q"
   "Major mode for editing q language files."
   :group 'q
-  (setq-local font-lock-defaults q-font-lock-defaults)
-  (setq-local syntax-propertize-function #'q-syntax-propertize)
+  (q--setup-font-lock)
   (setq-local comment-start q-comment-start)
   (setq-local comment-start-skip (concat "\\(^\\|[ \t]\\)\\("
                                          (regexp-quote q-comment-start)
