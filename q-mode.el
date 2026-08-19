@@ -388,7 +388,7 @@ integer, unlike the other `q-init-*' variables it sits alongside."
   "The q-shell buffer to send q commands.")
 
 (defun q-activate-this-buffer ()
-  "Set the `q-activate-buffer' to the currently active buffer."
+  "Set the `q-active-buffer' to the currently active buffer."
   (interactive)
   (q-activate-buffer (current-buffer)))
 
@@ -1392,7 +1392,7 @@ With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
 ;; faces
 
 ;; font-lock-comment-face font-lock-comment-delimiter-face
-;; font-lock-string-face font-loc-doc-face
+;; font-lock-string-face font-lock-doc-face
 ;; font-lock-keyword-face font-lock-builtin-face
 ;; font-lock-function-name-face
 ;; font-lock-variable-name-face font-lock-type-face
@@ -1828,7 +1828,7 @@ Uses a visiting buffer when modified; otherwise reads from disk."
       (and file (q--scannable-q-file-p file) (list file)))))
 
 (defun q--ensure-project-file-list ()
-  "Return the cached expanded file list, refreshing when the project changes.
+  "Return the cached expanded file list, refreshing when the project has changed.
 The \\l expansion only runs when the sentinel changes, not on every
 eldoc or CAPF invocation."
   (let* ((file     (buffer-file-name))
@@ -2150,9 +2150,9 @@ The timer is stored in the project cache so only one fires per project."
 
 (defun q--ensure-project-scan-cache ()
   "Ensure the shared project cache is populated for the current buffer.
-On the very first call the scan runs synchronously so callers have
-data immediately.  Subsequent calls return instantly; the idle timer
-(triggered by save/revert hooks) keeps the cache fresh."
+On the very first call the scan runs synchronously so callers have data
+immediately.  Subsequent calls return instantly; the idle timer, which
+is triggered by save/revert hooks, keeps the cache fresh."
   (when (and (q--project-key)
              (null (q--project-plist-get :scan-state)))
     (q--do-full-rescan (current-buffer) "initial scan")))
