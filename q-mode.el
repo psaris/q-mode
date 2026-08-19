@@ -1158,6 +1158,171 @@ Set the syntax table, `font-lock-defaults', and the
   (setq-local font-lock-defaults q-font-lock-defaults)
   (setq-local syntax-propertize-function #'q-syntax-propertize))
 
+;; q-inline-mode
+
+(defvar q-inline-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c C-.") 'q-inline-show-full)
+    (define-key map (kbd "C-c C-k") 'q-inline-clear)
+    (define-key map (kbd "C-u C-c C-k") 'q-inline-clear-buffer)
+    map)
+  "Keymap for `q-inline-mode'.")
+
+;;;###autoload
+(define-minor-mode q-inline-mode
+  "Toggle showing eval results inline, next to the code that produced them.
+
+When enabled, `q-eval-line' and friends show their reply as an overlay
+at the point they were sent from -- in addition to the q-shell/qcon/con
+buffer.  Implemented as a subscriber to the generic `q-reply-functions'
+hook - see `q--inline-reply-handler' for how a reply gets matched back
+to where it came from.  See `q-inline-duration' for how long the overlay
+stays visible.
+
+\\{q-inline-mode-map}"
+  :lighter " Q-Inline"
+  :keymap q-inline-mode-map
+  (unless q-inline-mode
+    (q-inline-clear-buffer)))
+
+(defface q-inline-face
+  '((t :inherit shadow :slant italic))
+  "Face used for the inline eval-result overlay shown by `q-eval-line' et al."
+  :group 'q)
+
+(defcustom q-inline-duration nil
+  "How long an eval-result overlay stays visible before auto-clearing.
+- nil (the default): persists until the underlying code is edited, or
+  `q-inline-clear'/`q-inline-clear-buffer' is used - see
+  `q--inline-invalidate'.
+- a number: seconds until this specific overlay is deleted, via a
+  one-shot timer.
+- the symbol `command': this specific overlay is deleted the moment
+  any command runs after it appears - closer to a fleeting tooltip
+  than a persistent annotation."
+  :safe (lambda (v) (or (null v) (numberp v) (eq v 'command)))
+  :type '(choice (const :tag "Persist until edited or cleared" nil)
+                 (integer :tag "Duration in seconds")
+                 (const :tag "Until next command" command))
+  :group 'q)
+
+(defun q--inline-show (source-beg source-end reply)
+  "Display REPLY as an overlay spanning SOURCE-BEG..SOURCE-END.
+Both are markers into a source buffer, still live only if that buffer
+is.  Any earlier eval-result overlay overlapping the same span is
+replaced rather than stacked.  The overlay's `after-string' - and so
+the visible result text - always renders at SOURCE-END regardless of
+where SOURCE-BEG is, but the overlay's own extent covers the whole
+span, so `q-inline-show-full' and edit-invalidation both work
+from anywhere within it, not just where the text happens to print.
+REPLY is truncated to its first line for that display text; the full
+text is kept on the overlay's `q-eval-full-reply' property."
+  (let ((buf (marker-buffer source-beg)))
+    (when (and buf (buffer-live-p buf) (not (string-empty-p reply)))
+      (with-current-buffer buf
+        (let* ((beg (marker-position source-beg))
+               (end (marker-position source-end))
+               (first-line (car (split-string reply "\n")))
+               (label (if (string-match-p "\n" reply) (concat first-line " ...") first-line)))
+          (dolist (ov (overlays-in beg end))
+            (when (overlay-get ov 'q-inline-result) (delete-overlay ov)))
+          (let ((ov (make-overlay beg end buf)))
+            (overlay-put ov 'q-inline-result t)
+            (overlay-put ov 'q-eval-full-reply reply)
+            (overlay-put ov 'after-string
+                        (propertize (concat "  => " label) 'face 'q-inline-face))
+            (overlay-put ov 'modification-hooks '(q--inline-invalidate))
+            (overlay-put ov 'insert-in-front-hooks '(q--inline-invalidate))
+            (q--inline-schedule-clear ov))))))
+  (set-marker source-beg nil)
+  (set-marker source-end nil))
+
+(defun q--inline-reply-handler (reply source-beg source-end)
+  "Show REPLY as an overlay spanning SOURCE-BEG..SOURCE-END.
+Registered unconditionally on `q-reply-functions' at load time, below
+- does nothing if SOURCE-BEG is nil (the request carried no source
+span - e.g. `q-eval-buffer'), if its buffer is no longer live, or if
+that buffer doesn't currently have `q-inline-mode' turned on."
+  (when (and source-beg
+             (buffer-live-p (marker-buffer source-beg))
+             (buffer-local-value 'q-inline-mode (marker-buffer source-beg)))
+    (q--inline-show source-beg source-end reply)))
+
+(add-hook 'q-reply-functions #'q--inline-reply-handler)
+
+(defun q--inline-delete (ov)
+  "Delete overlay OV."
+  (delete-overlay ov))
+
+(defun q--inline-schedule-clear (ov)
+  "Arrange for OV to auto-clear per `q-inline-duration'.
+A nil `q-inline-duration' does nothing."
+  (pcase q-inline-duration
+    ((pred numberp)
+     (run-at-time q-inline-duration nil #'q--inline-delete ov))
+    ('command
+     (letrec ((clear (lambda ()
+                        (remove-hook 'pre-command-hook clear t)
+                        (q--inline-delete ov))))
+       (add-hook 'pre-command-hook clear nil t)))))
+
+(defun q--inline-invalidate (overlay after-p &rest _)
+  "Delete an eval-result OVERLAY once its underlying text is edited.
+Modification hooks run once before the change and once after; AFTER-P
+distinguishes the two, and only the after call deletes the overlay."
+  (when after-p (delete-overlay overlay)))
+
+(defun q-inline-show-full ()
+  "Pop up the untruncated reply for the eval-result overlay at point.
+Only needed for multi-line replies (e.g. tables), where the inline
+overlay itself only shows the first line.  Works from anywhere the
+overlay spans."
+  (interactive)
+  (let ((ov (cl-find-if (lambda (o) (overlay-get o 'q-inline-result))
+                        (overlays-at (point)))))
+    (unless ov
+      (user-error "No eval result at point"))
+    (let ((reply (overlay-get ov 'q-eval-full-reply))
+          (buf (get-buffer-create "*q-inline-result*")))
+      (with-current-buffer buf
+        (erase-buffer)
+        (insert reply)
+        (goto-char (point-min))
+        (q--setup-font-lock)            ; not full q-mode
+        (font-lock-mode 1)
+        (font-lock-ensure))
+      (display-buffer buf))))
+
+(defun q-inline-clear (&optional whole-buffer)
+  "Delete the eval-result overlay at point and optionally the WHOLE-BUFFER.
+With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
+  (interactive "P")
+  (if whole-buffer
+      (q-inline-clear-buffer)
+    (let ((ov (cl-find-if (lambda (o) (overlay-get o 'q-inline-result))
+                          (overlays-at (point)))))
+      (unless ov
+        (user-error "No eval result at point"))
+      (delete-overlay ov))))
+
+(defun q-inline-clear-buffer ()
+  "Delete every eval-result overlay in the current buffer."
+  (interactive)
+  (let ((count 0))
+    (dolist (ov (overlays-in (point-min) (point-max)))
+      (when (overlay-get ov 'q-inline-result)
+        (delete-overlay ov)
+        (setq count (1+ count))))
+    (message (if (= count 0) "No eval results to clear"
+               (format "Cleared %d eval result%s" count (if (= count 1) "" "s"))))))
+
+(easy-menu-define q-inline-menu q-inline-mode-map
+  "Menubar for `q-inline-mode' commands."
+  '("Q-Inline"
+    ["Show Full Result"     q-inline-show-full t]
+    ["Clear Result"         q-inline-clear t]
+    ["Clear All Results"    q-inline-clear-buffer t]))
+
 ;; keymaps
 
 (defvar q-shell-mode-map
