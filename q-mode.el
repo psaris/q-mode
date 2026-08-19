@@ -1150,14 +1150,6 @@ Runs after every chunk of process output is inserted into the current
             (set-marker reply-start nil)
             (run-hook-with-args 'q-reply-functions reply source-beg source-end)))))))
 
-(defun q--setup-font-lock ()
-  "Set up q syntax highlighting in the current buffer.
-Set the syntax table, `font-lock-defaults', and the
-`syntax-propertize-function'."
-  (set-syntax-table q-mode-syntax-table)
-  (setq-local font-lock-defaults q-font-lock-defaults)
-  (setq-local syntax-propertize-function #'q-syntax-propertize))
-
 ;; q-inline-mode
 
 (defvar q-inline-mode-map
@@ -1574,6 +1566,14 @@ Syntactic context (strings, comments) is handled by
     (modify-syntax-entry ?\` ".  " table) ; treat ` as punctuation
     table)
   "Syntax table for `q-mode'.")
+
+(defun q--setup-font-lock ()
+  "Set up q syntax highlighting in the current buffer.
+Set the syntax table, `font-lock-defaults', and the
+`syntax-propertize-function'."
+  (set-syntax-table q-mode-syntax-table)
+  (setq-local font-lock-defaults q-font-lock-defaults)
+  (setq-local syntax-propertize-function #'q-syntax-propertize))
 
 (defun q-syntax-propertize (start end)
   "Apply syntax properties for q strings and comments between START and END."
