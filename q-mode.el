@@ -2044,7 +2044,7 @@ Used by `which-function-mode' and `add-log-current-defun-function'."
       (match-string-no-properties 1))))
 
 ;;;###autoload
-(define-derived-mode q-mode prog-mode "Q-Script"
+(define-derived-mode q-mode prog-mode "Q"
   "Major mode for editing q language files."
   :group 'q
   (setq-local font-lock-defaults q-font-lock-defaults)
