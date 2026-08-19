@@ -1194,7 +1194,7 @@ Set the syntax table, `font-lock-defaults', and the
 
 ;; menu bars
 (easy-menu-define q-menu q-mode-map
-  "Menubar for q script commands."
+  "Menubar for `q-mode' commands."
   '("Q"
     ["Eval Line"             q-eval-line t]
     ["Eval Line and Step"    q-eval-line-and-step t]
@@ -1219,7 +1219,7 @@ Set the syntax table, `font-lock-defaults', and the
     ))
 
 (easy-menu-define q-shell-menu q-shell-mode-map
-  "Menubar for q shell commands."
+  "Menubar for `q-shell-mode' commands."
   '("Q-Shell"
     ["Activate Buffer" q-activate-this-buffer t]
     ))
