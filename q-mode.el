@@ -169,6 +169,10 @@
 ;; it debounces rapid saves and defers the check for out-of-band disk
 ;; changes such as those made by git pull.
 
+;; WARNING: The `q-program' cannot use `rlwrap'.  The usage of
+;; `rlwrap' creates many issues, the most obvious is that the `q)'
+;; prompt can no longer be observed.
+
 ;; Q-mode indents each level based on `q-indent-step'.  To indent code
 ;; based on {}-, ()-, and []-groups instead of equal width tabs, you
 ;; can set this value to nil.
@@ -189,6 +193,10 @@
 ;; / q-msg-prefix: "system \"d .jnp\";"
 ;; / q-msg-postfix: ";system \"d .\""
 ;; / End:
+;; Flymake behavior is controlled by `q-flymake-on-save'.  When
+;; non-nil, checks run only after saving.  When nil (default), checks
+;; run for unsaved buffers by evaluating a temporary file containing
+;; current buffer contents.
 
 
 (require 'cl-lib)
