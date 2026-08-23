@@ -121,7 +121,9 @@
 ;; the selected region and `C-c C-b' sends the whole buffer.  If
 ;; prefixed with `C-u C-u', or pressing `C-c M-j' `C-c M-f' `C-c
 ;; M-s' `C-c M-r' respectively, will also switch point to the active
-;; q process buffer for direct interaction.
+;; q process buffer for direct interaction.  Evaluations performed in
+;; non-root namespaces are pre/post-fixed with a command to change
+;; directory.
 
 ;; If the source file exists on the same machine as the q process,
 ;; `C-c M-l' can be used to load the file associated with the active
@@ -177,22 +179,6 @@
 ;; based on {}-, ()-, and []-groups instead of equal width tabs, you
 ;; can set this value to nil.
 
-;; The variables `q-msg-prefix' and `q-msg-postfix' can be customized
-;; to prefix and postfix every msg sent to the inferior q[con]
-;; process.  This can be used to change directories before evaluating
-;; definitions within the q process and then changing back to the root
-;; directory.  To make the variables change values depending on which
-;; file they are sent from, values can be defined in a single line at
-;; the top of each .q file:
-
-;; / -*- q-msg-prefix: "system \"d .jnp\";"; q-msg-postfix: ";system \"d .\"";-*-
-
-;; or at the end:
-
-;; / Local Variables:
-;; / q-msg-prefix: "system \"d .jnp\";"
-;; / q-msg-postfix: ";system \"d .\""
-;; / End:
 ;; Flymake behavior is controlled by `q-flymake-on-save'.  When
 ;; non-nil, checks run only after saving.  When nil (default), checks
 ;; run for unsaved buffers by evaluating a temporary file containing
@@ -286,18 +272,6 @@ each level is indented by this amount."
 Note: this only affects comment insertion and recognition by commands such
 as `comment-region' and `comment-dwim'.  Syntax highlighting and sexp
 navigation always treat a bare / as the comment delimiter."
-  :safe 'stringp
-  :type 'string
-  :group 'q)
-
-(defcustom q-msg-prefix ""
-  "String to prefix every message sent to inferior q[con] process."
-  :safe 'stringp
-  :type 'string
-  :group 'q)
-
-(defcustom q-msg-postfix ""
-  "String to postfix every message sent to inferior q[con] process."
   :safe 'stringp
   :type 'string
   :group 'q)
@@ -959,12 +933,19 @@ SOURCE-SPAN, if non-nil, is a (BEG . END) pair of positions in the
 calling \(source\) buffer describing where STRING came from - see
 `q--eval-source-span'.  Once a reply arrives, `q--reply-filter' runs
 `q-reply-functions' with the reply text and markers at BEG and END (or
-both nil, if SOURCE-SPAN was nil)."
+both nil, if SOURCE-SPAN was nil).
+
+When SOURCE-SPAN is given, the namespace in effect at its BEG (per
+`q--namespace-at-point') is used to \\d into that namespace before
+evaluating STRING."
   (unless (stringp string)
     (user-error "Nothing to send"))
   (unless (q-shell-buffer-p q-active-buffer)
     (user-error "No active q buffer; run `M-x q' or activate a q shell with `C-c M-RET'"))
-  (let* ((msg (concat q-msg-prefix string q-msg-postfix))
+  (let* ((msg (if source-span
+                  (q--namespace-wrap-string
+                   string (q--namespace-at-point (car source-span)))
+                string))
          (source-beg (and source-span (copy-marker (car source-span))))
          (source-end (and source-span (copy-marker (cdr source-span)))))
     (with-current-buffer q-active-buffer
@@ -1898,15 +1879,22 @@ after an in-Emacs save and should not trigger a full rescan."
       name
     (concat (or namespace ".") "." name)))
 
-(defun q--namespace-at-point ()
-  "Return the active q namespace at point based on preceding \\d commands."
+(defun q--namespace-at-point (&optional pos)
+  "Return the active q namespace at POS (default point)."
   (save-excursion
-    (let ((limit (point))
+    (let ((limit (or pos (point)))
           (namespace nil))
       (goto-char (point-min))
       (while (re-search-forward q--namespace-command-regex limit t)
         (setq namespace (match-string-no-properties 1)))
       namespace)))
+
+(defun q--namespace-wrap-string (string namespace)
+  "Return STRING wrapped with \\d commands to change into NAMESPACE and back.
+Empty or null namespace leaves string untouched"
+  (if (and namespace (not (string= namespace ".")))
+      (concat "system\"d " namespace "\";" string ";system\"d .\";")
+    string))
 
 (defun q--make-entry (meta &optional doc signature file)
   "Return scanner entry from META with optional DOC, SIGNATURE and FILE location."

@@ -97,7 +97,9 @@ C-s` sends the symbol at point, `C-c C-r` sends the selected region
 and `C-c C-b` sends the whole buffer.  If prefixed with `C-u C-u`, or
 pressing `C-c M-j` `C-c M-f` `C-c M-s` `C-c M-r` respectively, will
 also switch point to the active q process buffer for direct
-interaction.
+interaction.  Evaluations performed in non-root namespaces are
+pre/post-fixed with a command to change directory.
+
 
 If the source file exists on the same machine as the q process, 
 `C-c M-l` can be used to load the file associated with the active 
@@ -154,27 +156,6 @@ changes such as those made by git pull.
 Q-mode indents each level based on `q-indent-step`.  To indent code
 based on {}-, ()-, and []-groups instead of equal width tabs, you
 can set this value to nil.
-
-The variables `q-msg-prefix` and `q-msg-postfix` can be customized
-to prefix and postfix every msg sent to the inferior q[con]
-process. This can be used to change directories before evaluating
-definitions within the q process and then changing back to the root
-directory. To make the variables change values depending on which
-file they are sent from, values can be defined in a single line at
-the top of each .q file:
-
-```q
-/ -*- q-msg-prefix: "system \"d .jnp\";"; q-msg-postfix: ";system \"d .\"";-*-
-```
-
-or at the end:
-
-```q
-/ Local Variables:
-/ q-msg-prefix: "system \"d .jnp\";"
-/ q-msg-postfix: ";system \"d .\""
-/ End:
-```
 
 Flymake behavior is controlled by `q-flymake-on-save`.
 When non-nil, checks run only after saving. When nil (default),
