@@ -2393,11 +2393,23 @@ For point-free definitions with no braces, moves to end of line."
     (end-of-line)))
 
 (defun q-current-defun ()
-  "Return the name of the q function enclosing point, or nil.
+  "Return the fully-scoped name of the q function enclosing point, or nil.
 Used by `which-function-mode' and `add-log-current-defun-function'."
   (save-excursion
-    (when (re-search-backward (concat "^" q-function-regex) nil t)
-      (match-string-no-properties 1))))
+    (let ((start (point))
+          name)
+      (goto-char (line-end-position))
+      (when (re-search-backward (concat "^" q-function-regex) nil t)
+        (let* ((candidate (match-string-no-properties 1))
+               (end (match-end 0))
+               (close-line (if (eq (char-before end) ?{)
+                                (progn (goto-char (1- end))
+                                       (ignore-errors (forward-sexp) (line-number-at-pos)))
+                              (line-number-at-pos end))))
+          (when (and close-line (<= (line-number-at-pos start) close-line))
+            (setq name candidate))))
+      (when name
+        (q--canonicalize-name (q--namespace-at-point start) name)))))
 
 ;;;###autoload
 (define-derived-mode q-mode prog-mode "Q"
