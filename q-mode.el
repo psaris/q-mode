@@ -1966,7 +1966,7 @@ Returns nil when SUMMARY does not look like a function definition."
                        (canonical (q--canonicalize-name namespace name))
                        (meta (make-meta def-pos))
                        (doc (q--definition-doc def-pos))
-                       (signature (q--function-signature name summary))
+                       (signature (q--function-signature canonical summary))
                        (entry (q--make-entry meta doc signature file)))
                   (puthash canonical (cons entry (gethash canonical def-index)) def-index)
                   (push canonical symbols)))
