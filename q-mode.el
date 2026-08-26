@@ -2378,7 +2378,7 @@ A qcon subprocess relaying to a remote q process.")
                (dolist (def defs)
                  (push (cons name (copy-marker (plist-get def :pos))) entries)))
              (plist-get (q--scan-source-in-current-buffer) :definitions))
-    (sort entries :key (lambda (x) (cdr x)))))
+    (sort entries (lambda (a b) (< (cdr a) (cdr b))))))
 
 (with-eval-after-load 'hideshow
   (add-to-list 'hs-special-modes-alist
