@@ -2288,8 +2288,10 @@ INDEX-KEY is a plist keyword such as :definition-index or :reference-index."
                index))))
 
 (defun q--identifier-at-point ()
-  "Return q identifier at point, or nil when unavailable."
-  (thing-at-point 'symbol t))
+  "Return the fully-scoped q identifier at point, or nil when unavailable."
+  (let ((name (thing-at-point 'symbol t)))
+    (when name
+      (q--canonicalize-name (q--namespace-at-point) name))))
 
 (defun q-xref-backend ()
   "Return xref backend for `q-mode'."
@@ -2369,10 +2371,14 @@ A native Emacs connection to a remote q process.")
   "Major mode for a `q-qcon' buffer.
 A qcon subprocess relaying to a remote q process.")
 
-(defconst q-imenu-generic-expression
-  (list
-   (list nil (concat "^" q-name-regex ":") 1))
-  "Regular expressions to get q expressions into imenu.")
+(defun q-imenu-create-index ()
+  "Build the fully-scoped `imenu' index alist for the current buffer."
+  (let (entries)
+    (maphash (lambda (name defs)
+               (dolist (def defs)
+                 (push (cons name (copy-marker (plist-get def :pos))) entries)))
+             (plist-get (q--scan-source-in-current-buffer) :definitions))
+    (sort entries :key (lambda (x) (cdr x)))))
 
 (with-eval-after-load 'hideshow
   (add-to-list 'hs-special-modes-alist
@@ -2423,7 +2429,7 @@ Used by `which-function-mode' and `add-log-current-defun-function'."
   (setq-local comment-end "")
   (setq-local indent-line-function 'q-indent-line)
   ;; enable imenu
-  (setq-local imenu-generic-expression q-imenu-generic-expression)
+  (setq-local imenu-create-index-function #'q-imenu-create-index)
   ;; which-function-mode
   (setq-local add-log-current-defun-function #'q-current-defun)
   (setq-local beginning-of-defun-function #'q-beginning-of-defun)
