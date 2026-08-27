@@ -764,18 +764,24 @@ Captures the first chunk as a `q-con' reply and closes connection."
       (q--con-finish shell-buffer (q--con-format-reply chunk)))))
 
 (defun q--con-sentinel (shell-buffer)
-  "Return a process sentinel reporting `q-con' failures for SHELL-BUFFER.
-Can be a TLS handshake failure, host unreachable - any `process-status'
-change with no chunk ever having arrived.  A normal reply is already
-fully handled, including `delete-process', by `q--con-filter' before
-this ever gets a chance to run; the `q-con-handled' process property is
-how it tells the two cases apart."
+  "Return a process sentinel for `q-con' SHELL-BUFFER.
+The underlying protocol is one-shot: the server closes the connection
+itself once it has replied, even when the reply is empty - so
+`process-status' being `closed' or `exit' here just means an empty
+reply, not a failure.  Only `failed' - the connection itself never
+came up: TLS handshake, host unreachable, connection refused - is
+reported as an error.  A non-empty reply is already fully handled,
+including `delete-process', by `q--con-filter' before this ever gets a
+chance to run; the `q-con-handled' process property is how it tells
+the two cases apart."
   (lambda (proc event)
     (unless (process-get proc 'q-con-handled)
       (process-put proc 'q-con-handled t)
       (q--con-finish shell-buffer
-                     (q--con-format-reply
-                      (format "q-con error: %s" (string-trim event)))))))
+                     (if (eq (process-status proc) 'failed)
+                         (q--con-format-reply
+                          (format "q-con error: %s" (string-trim event)))
+                       "")))))
 
 (defun q--con-start-query (shell-buffer query)
   "Open an async connection to SHELL-BUFFER's `q--con-target' and send QUERY.
