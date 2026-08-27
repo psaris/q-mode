@@ -715,7 +715,9 @@ new socket.")
 LOGIN and PASSWORD are the resolved credentials (either may be \"\");
 QUERY is the q expression to evaluate. A null byte is unconditionally
 appended to QUERY."
-  (concat login ":" password "\0" query "\0"))
+  (concat login
+          (unless (string-empty-p password) (concat ":" password))
+          "\0" query "\0"))
 
 (defvar-local q--con-inflight nil
   "The network process for the in-flight `q-con' request.
