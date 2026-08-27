@@ -713,9 +713,9 @@ new socket.")
 (defun q--con-handshake-and-query (login password query)
   "Build the login-handshake-plus-query bytes for a freshly opened q socket.
 LOGIN and PASSWORD are the resolved credentials (either may be \"\");
-QUERY is the q expression to evaluate. A newline is unconditionally
+QUERY is the q expression to evaluate. A null byte is unconditionally
 appended to QUERY."
-  (concat login ":" password "\0" query "\n"))
+  (concat login ":" password "\0" query "\0"))
 
 (defvar-local q--con-inflight nil
   "The network process for the in-flight `q-con' request.
@@ -793,6 +793,7 @@ to `ps'; see `q--connection-resolve-credentials'."
           (set-process-filter proc (q--con-filter shell-buffer))
           (set-process-sentinel proc (q--con-sentinel shell-buffer))
           (process-send-string proc (q--con-handshake-and-query login password query))
+          (process-send-eof proc)
           proc)
       (error
        (q--con-finish shell-buffer
