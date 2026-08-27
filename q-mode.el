@@ -99,7 +99,7 @@
 ;; password itself is never typed or stored in `q-connections' - it's
 ;; always resolved from auth-source.  `.netrc'/`.authinfo' is the
 ;; common case, but auth-source is backend-agnostic: anything
-;; registered as an `auth-source-backend' (e.g. the system Secret
+;; registered as an auth-source-backend (e.g. the system Secret
 ;; Service/macOS Keychain via `auth-source-pass' or `secrets.el', or a
 ;; custom backend you write yourself) is consulted the same way, so
 ;; the password need not live in a plaintext file at all.
@@ -228,7 +228,7 @@ to arrive in order: on process death (`q-process-sentinel')."
 Each element is (NAME HOST PORT USER); USER may be \"\".  Password is
 not stored here — it is resolved from auth-source at connect time by
 `q--connection-resolve-credentials'.  Auth-source is not tied to
-`.netrc'/`.authinfo': any configured `auth-source-backend' (Secret
+`.netrc'/`.authinfo': any configured auth-source-backend (Secret
 Service, macOS Keychain, a custom backend, etc.) works the same way,
 since `q--connection-resolve-credentials' just calls
 `auth-source-search', which is backend-agnostic."
@@ -547,7 +547,7 @@ at the prompt, regardless of how this buffer's process is reached."
   (set-process-sentinel process 'q-process-sentinel))
 
 (defun q--format-buffer-name (type &optional host port alias tls)
-  "Return a standard q-mode buffer name.
+  "Return a standard `q-mode' buffer name.
 TYPE is one of :shell, :con, or :qcon; HOST and PORT are appended for
 remote connections and optionally for a local process.  ALIAS, when
 non-nil, is shown in brackets before HOST/PORT - it's the caller's job
