@@ -214,7 +214,7 @@
 (defun q--reply-queue-clear ()
   "Discard every entry in `q--reply-queue', releasing its markers.
 Used wherever pending replies can no longer be trusted to arrive, or
-to arrive in order: on process death (`q-process-sentinel')."
+to arrive in order: on process death (`q--process-sentinel')."
   (dolist (entry q--reply-queue)
     (dolist (marker entry) (when marker (set-marker marker nil))))
   (setq q--reply-queue nil))
@@ -415,7 +415,7 @@ Prompt with a list of live Q Shell buffers if called interactively."
   (when (called-interactively-p 'any) (display-buffer buffer))
   (setq q-active-buffer (get-buffer buffer)))
 
-(defun q-default-args ()
+(defun q--default-args ()
   "Build the default q command-line argument string from `q-init-*' variables."
   (concat
    (unless (equal q-init-file "") (format " %s" (shell-quote-argument q-init-file)))
@@ -514,7 +514,7 @@ minibuffer prompt defaults."
           (format "%s:%s" host port)
           (unless (equal user "") (format ":%s" user))))
 
-(defun q-con-default-args ()
+(defun q--con-default-args ()
   "Build the default q connection args plist for `q-con'.
 See `q--connection-default-args' for the shape."
   (q--connection-default-args))
@@ -544,7 +544,7 @@ Input history is shared across every kind of q buffer, in a single
 at the prompt, regardless of how this buffer's process is reached."
   (setq comint-input-ring-file-name (expand-file-name "~/.q_history"))
   (comint-read-input-ring t)
-  (set-process-sentinel process 'q-process-sentinel))
+  (set-process-sentinel process 'q--process-sentinel))
 
 (defun q--format-buffer-name (type &optional host port alias tls)
   "Return a standard `q-mode' buffer name.
@@ -574,7 +574,7 @@ specifies the command line args to use when executing q; the
 default ARGS are obtained from the q-init customization
 variables.  In interactive use, a prefix argument directs this
 command to read the command line arguments from the minibuffer."
-  (interactive (let* ((args (q-default-args))
+  (interactive (let* ((args (q--default-args))
                       (user  q-user)
                       (host  q-host))
                  (if current-prefix-arg
@@ -867,7 +867,7 @@ at a time, in order, as each previous one finishes - see
   (interactive
    (if current-prefix-arg
        (q--connection-prompt-args)
-     (q-con-default-args)))
+     (q--con-default-args)))
   (let ((display-args (q--connection-display-args host port user tls)))
     (q--start-connection-buffer
      (q--format-buffer-name :con host port alias tls)
@@ -905,7 +905,7 @@ at a time, in order, as each previous one finishes - see
     (kill-buffer q-active-buffer)
     (unless (buffer-live-p q-active-buffer) (setq q-active-buffer nil))))
 
-(defun q-process-sentinel (process message)
+(defun q--process-sentinel (process message)
   "Sentinel for use with q processes.
 This marks the PROCESS with a MESSAGE, at a particular time point."
   (comint-write-input-ring)
@@ -921,7 +921,7 @@ This marks the PROCESS with a MESSAGE, at a particular time point."
         ;; Any queued replies will never arrive now.
         (q--reply-queue-clear)))))
 
-(defun q-strip (text)
+(defun q--strip (text)
   "Strip TEXT of all trailing comments, newlines and excessive whitespace.
 The order of operations matters and must not be rearranged."
   (setq text (replace-regexp-in-string "^\\(?:[^\\\\].*\\)?[ \t]\\(/.*\\)\\(?:\n\\|\\'\\)" "" text t t 1)) ; / comments
@@ -994,7 +994,7 @@ the line containing END."
 (defun q-eval-region (start end)
   "Send the region between START and END to the inferior q[con] process."
   (interactive "r")
-  (q-send-string (q--eval-prefix (q-strip (buffer-substring start end)))
+  (q-send-string (q--eval-prefix (q--strip (buffer-substring start end)))
                  (q--eval-source-span start end))
   (setq deactivate-mark t))
 
@@ -1024,7 +1024,7 @@ this passes no source span - there's no single well-defined
 provenance region for evaluating an entire buffer the way there is for
 one line, symbol, or function."
   (interactive)
-  (q-send-string (q-strip (buffer-substring (point-min) (point-max)))))
+  (q-send-string (q--strip (buffer-substring (point-min) (point-max)))))
 
 (defconst q-symbol-regexp
   "`\\(?:\\(?:\\w\\|[.]\\)\\(?:\\w\\|[_.]\\)*\\)?"
@@ -1086,28 +1086,28 @@ one line, symbol, or function."
     (search-failed
      (user-error "No function found around point"))))
 
-(defun q-and-go (fun)
+(defun q--and-go (fun)
   "Call FUN interactively and show active q buffer."
   (let ((current-prefix-arg '(16))) (call-interactively fun)))
 
 (defun q-eval-line-and-go ()
   "Send the current line to the inferior q[con] process and show active q buffer."
   (interactive)
-  (q-and-go 'q-eval-line))
+  (q--and-go 'q-eval-line))
 
 (defun q-eval-function-and-go ()
   "Send the function to the inferior q[con] process and show active q buffer."
-  (interactive) (q-and-go 'q-eval-function))
+  (interactive) (q--and-go 'q-eval-function))
 
 (defun q-eval-region-and-go ()
   "Send the active region to the inferior q[con] process and show active q buffer."
   (interactive)
-  (q-and-go 'q-eval-region))
+  (q--and-go 'q-eval-region))
 
 (defun q-eval-symbol-and-go ()
   "Send current symbol to the inferior q[con] process and show active q buffer."
   (interactive)
-  (q-and-go 'q-eval-symbol))
+  (q--and-go 'q-eval-symbol))
 
 (defun q-load-file ()
   "Load current buffer's file into the inferior q[con] process after saving."
@@ -2302,7 +2302,7 @@ INDEX-KEY is a plist keyword such as :definition-index or :reference-index."
     (when name
       (q--canonicalize-name (q--namespace-at-point) name))))
 
-(defun q-xref-backend ()
+(defun q--xref-backend ()
   "Return xref backend for `q-mode'."
   'q)
 
@@ -2447,7 +2447,7 @@ Used by `which-function-mode' and `add-log-current-defun-function'."
   (add-hook 'completion-at-point-functions #'q-completion-at-point nil t)
   (add-hook 'eldoc-documentation-functions #'q-eldoc-function nil t)
   (when (featurep 'xref)
-    (add-hook 'xref-backend-functions #'q-xref-backend nil t))
+    (add-hook 'xref-backend-functions #'q--xref-backend nil t))
   (add-hook 'flymake-diagnostic-functions 'q-flymake nil t)
   ;; Schedule rescans on save/revert rather than inline on every eldoc tick.
   ;; Saves trigger an incremental rescan of the changed file only; out-of-band
