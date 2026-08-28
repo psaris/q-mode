@@ -719,7 +719,7 @@ appended to QUERY."
           (unless (string-empty-p password) (concat ":" password))
           "\0" query "\0"))
 
-(defvar-local q--con-inflight nil
+(defvar-local q--con-inflight-proc nil
   "The network process for the in-flight `q-con' request.
 Nil if idle.  See `q--con-input-sender'.")
 
@@ -750,7 +750,7 @@ blocking.")
 Then send next query (if any) from `q--con-dispatch-queue'."
   (when (buffer-live-p shell-buffer)
     (with-current-buffer shell-buffer
-      (setq q--con-inflight nil)
+      (setq q--con-inflight-proc nil)
       (q--output-filter shell-buffer text)
       (q--con-dispatch-next))))
 
@@ -810,8 +810,8 @@ to `ps'; see `q--connection-resolve-credentials'."
 
 (defun q--con-dispatch-next ()
   "Send next `q-con' request if none are already in flight."
-  (when (and (not q--con-inflight) q--con-dispatch-queue)
-    (setq q--con-inflight (q--con-start-query (current-buffer) (pop q--con-dispatch-queue)))))
+  (when (and (not q--con-inflight-proc) q--con-dispatch-queue)
+    (setq q--con-inflight-proc (q--con-start-query (current-buffer) (pop q--con-dispatch-queue)))))
 
 (defun q--con-input-sender (_proc string)
   "Comint input sender used to answer queries in a `q-con' buffer.
@@ -827,10 +827,10 @@ process."
   "Abort the in-flight `q-con' request, if any.
 Drop everything queued behind it."
   (interactive)
-  (when q--con-inflight
-    (process-put q--con-inflight 'q-con-handled t)
-    (delete-process q--con-inflight)
-    (setq q--con-inflight nil))
+  (when q--con-inflight-proc
+    (process-put q--con-inflight-proc 'q-con-handled t)
+    (delete-process q--con-inflight-proc)
+    (setq q--con-inflight-proc nil))
   (setq q--con-dispatch-queue nil)
   (q--reply-queue-clear)
   (q--output-filter (current-buffer) "\nConnection aborted.\n"))
