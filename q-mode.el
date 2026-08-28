@@ -1682,7 +1682,7 @@ current buffer by checking a temporary file."
                 (kill-buffer (process-buffer proc))))))))
         (process-send-eof q--flymake-proc)))))
 
-(defconst q-capf-core-words
+(defconst q--capf-core-words-set
   (let ((ht (make-hash-table :test #'equal)))
     (dolist (w (append q-keyword-list q-builtin-word-list q-builtin-dot-z-word-list
                        q-builtin-dot-Q-word-list q-builtin-dot-h-word-list
@@ -2036,7 +2036,7 @@ Called after any per-file entry is updated so all buffers in the project
 see a consistent view without re-reading any unchanged files."
   (let* ((def-index  (make-hash-table :test #'equal))
          (ref-index  (make-hash-table :test #'equal))
-         (candidates (copy-hash-table q-capf-core-words))
+         (candidates (copy-hash-table q--capf-core-words-set))
          (file-index (or (q--project-plist-get :file-index) (make-hash-table)))
          ;; Ensure files are in sorted order
          (files (sort (hash-table-keys file-index)
@@ -2250,7 +2250,7 @@ STRING and PREDICATE are used as in `try-completion'."
   (q--ensure-project-scan-cache)
   (complete-with-action action
                         (or (q--project-plist-get :completion-candidates)
-                            q-capf-core-words)
+                            q--capf-core-words-set)
                         string predicate))
 
 (defun q-completion-at-point ()
