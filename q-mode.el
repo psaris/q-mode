@@ -41,7 +41,7 @@
 ;;
 ;;  - secure password retrieval (auth-source),
 ;;
-;;  - named remote connections (q-connections),
+;;  - named remote connections (q-connections-alist),
 ;;
 ;;  - incremental, project-wide indexing (imenu, xref),
 ;;
@@ -87,19 +87,19 @@
 ;; auth-source only for the instant it takes to write it to the
 ;; socket, and it never becomes a command-line argument at all.
 ;; `q-con' also supports TLS: prefix a host with `tcps://' - in
-;; `q-connection-host', a `q-connections' entry, or typed ad-hoc at the
+;; `q-connection-host', a `q-connections-alist' entry, or typed ad-hoc at the
 ;; prompt - to connect over TLS instead of plain tcp.
 
 ;; When prompted this way, `q-qcon' and `q-con' both offer named
-;; connections from `q-connections' as completion candidates,
+;; connections from `q-connections-alist' as completion candidates,
 ;; alongside the option of typing an ad-hoc "host:port[:user]" string.
-;; Each entry in `q-connections' is a (NAME HOST PORT USER) list,
+;; Each entry in `q-connections-alist' is a (NAME HOST PORT USER) list,
 ;; letting you refer to a remote q server by a short name instead of
 ;; retyping its host/port/user every time.  In every case, the
-;; password itself is never typed or stored in `q-connections' - it's
+;; password itself is never typed or stored in `q-connections-alist' - it's
 ;; always resolved from auth-source.  `.netrc'/`.authinfo' is the
 ;; common case, but auth-source is backend-agnostic: anything
-;; registered as an auth-source-backend (e.g. the system Secret
+;; registered as an `auth-source-backend' (e.g. the system Secret
 ;; Service/macOS Keychain via `auth-source-pass' or `secrets.el', or a
 ;; custom backend you write yourself) is consulted the same way, so
 ;; the password need not live in a plaintext file at all.
@@ -223,7 +223,7 @@ to arrive in order: on process death (`q-process-sentinel')."
 
 (defgroup q-connection nil "Q remote connection arguments." :group 'q)
 
-(defcustom q-connections nil
+(defcustom q-connections-alist nil
   "Alist of named q connections.
 Each element is (NAME HOST PORT USER); USER may be \"\".  Password is
 not stored here — it is resolved from auth-source at connect time by
@@ -429,7 +429,7 @@ Prompt with a list of live Q Shell buffers if called interactively."
 ;;   HOST  - always already stripped of any tcp[s]:// scheme prefix.
 ;;   PORT  - a number or numeric string.
 ;;   USER  - "" when unset.
-;;   ALIAS - a matched `q-connections' entry name, or nil.
+;;   ALIAS - a matched `q-connections-alist' entry name, or nil.
 ;;   TLS   - non-nil only for an explicit tcps:// prefix, parsed out of
 ;;           HOST exactly once, then carried alongside rather than
 ;;           re-derived later by re-parsing HOST.
@@ -439,7 +439,7 @@ Prompt with a list of live Q Shell buffers if called interactively."
 (defun q--connection-default-args ()
   "Return the default q connection args as a plist.
 Keys are :host :port :user :alias :tls, built from the `q-connection-*'
-variables.  :alias is always nil here, since no `q-connections'
+variables.  :alias is always nil here, since no `q-connections-alist'
 selection happens on this path."
   (let* ((parsed (q--parse-host-scheme q-connection-host))
          (tls (car parsed))
@@ -465,13 +465,13 @@ matches; PASSWORD is nil then."
           (and creds (auth-info-password creds)))))
 
 (defun q--connection-names ()
-  "Return the configured connection names from `q-connections'."
-  (mapcar #'car q-connections))
+  "Return the configured connection names from `q-connections-alist'."
+  (mapcar #'car q-connections-alist))
 
 (defun q--connection-prompt (prompt default)
-  "Use PROMPT to select `q-connections' pre-filled with DEFAULT.
+  "Use PROMPT to select `q-connections-alist' pre-filled with DEFAULT.
 Returns a 5-item list (NAME HOST PORT USER TLS): NAME and HOST/PORT/USER
-come from a matched `q-connections' entry, or from splitting ad-hoc
+come from a matched `q-connections-alist' entry, or from splitting ad-hoc
 input on \":\" when nothing matches (missing fields default to \"\").
 Either way, HOST's tcp[s]:// scheme is parsed exactly once here, before
 any colon-splitting happens - splitting \"tcps://host:5000\" on \":\"
@@ -481,7 +481,7 @@ PORT.  A 4th field is rejected as an attempted password with a
 this can't misfire for it.  An empty PORT is likewise rejected - a q
 connection always needs one, unlike a local q process."
   (let* ((choice (completing-read prompt (q--connection-names) nil nil nil nil default))
-         (entry (assoc choice q-connections))
+         (entry (assoc choice q-connections-alist))
          (parsed (q--parse-host-scheme (if entry (nth 1 entry) choice)))
          (tls (car parsed))
          (fields (if entry
@@ -522,7 +522,7 @@ See `q--connection-default-args' for the shape."
 (defun q--connection-prompt-args ()
   "Prompt for a q connection, returning a plist.
 Keys are :host :port :user :alias :tls (see `q--connection-default-args'
-for the shape).  Offers `q-connections' as completion candidates
+for the shape).  Offers `q-connections-alist' as completion candidates
 alongside an ad-hoc \"host:port[:user]\" string.  The minibuffer default
 is built by parsing `q-connection-host' for its scheme here, rather than
 reusing an already-scheme-stripped default - so a configured tcps://
@@ -551,7 +551,7 @@ at the prompt, regardless of how this buffer's process is reached."
 TYPE is one of :shell, :con, or :qcon; HOST and PORT are appended for
 remote connections and optionally for a local process.  ALIAS, when
 non-nil, is shown in brackets before HOST/PORT - it's the caller's job
-to supply it; this function doesn't search `q-connections' itself.
+to supply it; this function doesn't search `q-connections-alist' itself.
 TLS, when non-nil, prefixes HOST with \"tcps://\"."
   (let* ((type-str (substring (symbol-name type) 1))
          (parsed (when host (q--parse-host-scheme host)))
@@ -657,11 +657,11 @@ earlier call."
   "Connect to a pre-existing q process.
 HOST, PORT, and USER identify the connection; the default for all
 three comes from the `q-connection-*' customization variables.  ALIAS, when
-non-nil, is a matched `q-connections' entry name, shown in the buffer
+non-nil, is a matched `q-connections-alist' entry name, shown in the buffer
 name.  TLS is only used to warn that qcon doesn't support it - qcon
 always connects over plain tcp regardless.  In interactive use, a
 prefix argument directs this command to prompt for connection args,
-offering `q-connections' as completion candidates while still accepting
+offering `q-connections-alist' as completion candidates while still accepting
 an ad-hoc \"host:port[:user]\" string."
   (interactive
    (if current-prefix-arg
@@ -848,9 +848,9 @@ tcps:// scheme prefix on the host.
 
 HOST, PORT, and USER identify the connection; the default for all
 three comes from the `q-connection-*' customization variables.  ALIAS, when
-non-nil, is a matched `q-connections' entry name, shown in the buffer
+non-nil, is a matched `q-connections-alist' entry name, shown in the buffer
 name.  In interactive use, a prefix argument prompts for connection
-args, offering `q-connections' as completion candidates while still
+args, offering `q-connections-alist' as completion candidates while still
 accepting an ad-hoc \"host:port[:user]\" string.
 
 Because the underlying protocol is one-shot - the q process replies and
