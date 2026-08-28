@@ -1026,20 +1026,20 @@ one line, symbol, or function."
   (interactive)
   (q-send-string (q-strip (buffer-substring (point-min) (point-max)))))
 
-(defconst q-symbol-regex
+(defconst q-symbol-regexp
   "`\\(?:\\(?:\\w\\|[.]\\)\\(?:\\w\\|[_.]\\)*\\)?"
   "Regular expression used to find symbols.")
 
-(defconst q-file-regex
-  (concat q-symbol-regex ":\\(?:\\w\\|[/:_.]\\)*")
+(defconst q-file-regexp
+  (concat q-symbol-regexp ":\\(?:\\w\\|[/:_.]\\)*")
   "Regular expression used to find files.")
 
-(defconst q-name-regex
+(defconst q-name-regexp
   "\\_<\\([.]?[a-zA-Z]\\(?:\\w\\|[_.]\\)*\\)\\s-*"
   "Regular expression used to find variable or function names.")
 
-(defconst q-function-regex
-  (concat q-name-regex
+(defconst q-function-regexp
+  (concat q-name-regexp
           ":"                           ; assignment
           ":?"                          ; view
           "\\s-*"                       ; potential white space
@@ -1054,8 +1054,8 @@ one line, symbol, or function."
           )
   "Regular expression used to find function declarations.")
 
-(defconst q-variable-regex
-  (concat q-name-regex
+(defconst q-variable-regexp
+  (concat q-name-regexp
           "[-.~=!@#$%^&*_+|,<>?]?"      ; potential compound assignment
           ":"                           ; assignment
           ":?"                          ; view
@@ -1077,7 +1077,7 @@ one line, symbol, or function."
   (condition-case nil
       (save-excursion
         (goto-char (line-end-position))          ; go to end of line
-        (let ((start (re-search-backward (concat "^" q-function-regex))) ; find beginning of function
+        (let ((start (re-search-backward (concat "^" q-function-regexp))) ; find beginning of function
               (_   (re-search-forward ":")) ; find end of function name
               (bounds   (bounds-of-thing-at-point 'sexp))) ; find function body
           (unless bounds
@@ -1411,7 +1411,7 @@ With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
     "sum" "tan" "update" "var" "wavg" "while" "within" "wsum" "xexp")
   "Keywords for q mode defined in .Q.res.")
 
-(defconst q-keywords
+(defconst q-keywords-regexp
   (concat "\\_<"
           "\\(?:[_]\\)?"                ; leading _ is not a symbol
           (regexp-opt q-keyword-list t)
@@ -1435,7 +1435,7 @@ With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
     "xgroup" "xkey" "xlog" "xprev" "xrank")
   "Builtin functions for q mode defined in q.k.")
 
-(defconst q-builtin-words
+(defconst q-builtin-words-regexp
   (concat "\\_<"
           "\\(?:[_]\\)?"                ; leading _ is not a symbol
           "\\("
@@ -1454,7 +1454,7 @@ With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
     ".z.vs" ".z.w" ".z.wc" ".z.wo" ".z.ws" ".z.x" ".z.z" ".z.zd")
   "Builtin .z functions/constants defined for q mode.")
 
-(defconst q-builtin-dot-z-words
+(defconst q-builtin-dot-z-words-regexp
   (concat "\\_<"
           "\\(?:[_]\\)?"                ; leading _ is not a symbol
           (regexp-opt q-builtin-dot-z-word-list t)
@@ -1472,7 +1472,7 @@ With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
     ".Q.xR" ".Q.xs")
   "Builtin .Q functions/constants defined for q mode.")
 
-(defconst q-builtin-dot-Q-words
+(defconst q-builtin-dot-Q-words-regexp
   (concat "\\_<"
           "\\(?:[_]\\)?"                ; leading _ is not a symbol
           (regexp-opt q-builtin-dot-Q-word-list t)
@@ -1486,7 +1486,7 @@ With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
     ".h.xs" ".h.xt")
   "Builtin .h functions/constants defined for q mode.")
 
-(defconst q-builtin-dot-h-words
+(defconst q-builtin-dot-h-words-regexp
   (concat "\\_<"
           "\\(?:[_]\\)?"                ; leading _ is not a symbol
           (regexp-opt q-builtin-dot-h-word-list t)
@@ -1497,7 +1497,7 @@ With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
   '(".j.j" ".j.jd" ".j.k")
   "Builtin .j functions/constants defined for q mode.")
 
-(defconst q-builtin-dot-j-words
+(defconst q-builtin-dot-j-words-regexp
   (concat "\\_<"
           "\\(?:[_]\\)?"                ; leading _ is not a symbol
           (regexp-opt q-builtin-dot-j-word-list t)
@@ -1511,30 +1511,30 @@ With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
    ;; os multi-letter system commands ignore comments
    '("^\\\\\\w\\w.*?$" 0 font-lock-preprocessor-face prepend)
    '("^'.*" . font-lock-warning-face) ; error
-   (list (concat "[; ]\\('" q-symbol-regex "\\)") 1 font-lock-warning-face nil) ; signal
-   (cons q-file-regex 'font-lock-preprocessor-face) ; files
-   (cons q-symbol-regex 'font-lock-constant-face) ; symbols
+   (list (concat "[; ]\\('" q-symbol-regexp "\\)") 1 font-lock-warning-face nil) ; signal
+   (cons q-file-regexp 'font-lock-preprocessor-face) ; files
+   (cons q-symbol-regexp 'font-lock-constant-face) ; symbols
    )
   "Minimal highlighting expressions for q mode.")
 
 (defconst q-font-lock-keywords-1          ; symbols
   (append q-font-lock-keywords
           (list
-           (list q-keywords 1 'font-lock-keyword-face nil) ; select from
+           (list q-keywords-regexp 1 'font-lock-keyword-face nil) ; select from
            '("\\b[0-2]:" . font-lock-builtin-face)         ; IO/IPC
-           (list q-builtin-words 1 'font-lock-builtin-face nil) ; q.k
-           (list q-builtin-dot-z-words 1 'font-lock-builtin-face nil) ; .z.*
-           (list q-builtin-dot-Q-words 1 'font-lock-builtin-face nil) ; .Q.*
-           (list q-builtin-dot-h-words 1 'font-lock-builtin-face nil) ; .h.*
-           (list q-builtin-dot-j-words 1 'font-lock-builtin-face nil) ; .j.*
+           (list q-builtin-words-regexp 1 'font-lock-builtin-face nil) ; q.k
+           (list q-builtin-dot-z-words-regexp 1 'font-lock-builtin-face nil) ; .z.*
+           (list q-builtin-dot-Q-words-regexp 1 'font-lock-builtin-face nil) ; .Q.*
+           (list q-builtin-dot-h-words-regexp 1 'font-lock-builtin-face nil) ; .h.*
+           (list q-builtin-dot-j-words-regexp 1 'font-lock-builtin-face nil) ; .j.*
            ))
   "More highlighting expressions for q mode.")
 
 (defconst q-font-lock-keywords-2 ; function/variable names and literals
   (append q-font-lock-keywords-1
           (list
-           (list q-function-regex 1 'font-lock-function-name-face nil) ; functions
-           (list q-variable-regex 1 'font-lock-variable-name-face nil) ; variables
+           (list q-function-regexp 1 'font-lock-function-name-face nil) ; functions
+           (list q-variable-regexp 1 'font-lock-variable-name-face nil) ; variables
            '("\\_<[0-9]\\{4\\}\\.[0-9]\\{2\\}\\(?:m\\|\\.[0-9]\\{2\\}\\(?:T\\(?:[0-9]\\{2\\}\\(?::[0-9]\\{2\\}\\(?::[0-9]\\{2\\}\\(?:\\.[0-9]*\\)?\\)?\\)?\\)?\\)?\\)\\_>" . font-lock-constant-face) ; month/date/datetime
            '("\\_<\\(?:[0-9]\\{4\\}\\.[0-9]\\{2\\}\\.[0-9]\\{2\\}\\|[0-9]+\\)D\\(?:[0-9]\\(?:[0-9]\\(?::[0-9]\\{2\\}\\(?::[0-9]\\{2\\}\\(?:\\.[0-9]*\\)?\\)?\\)?\\)?\\)?\\_>" . font-lock-constant-face) ; timespan/timestamp
            '("\\_<[0-9a-f]\\{8\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{12\\}\\_>" . font-lock-constant-face) ; guid
@@ -1767,10 +1767,10 @@ file path.  Returns nil for unsaved buffers with no project."
 
 ;; \l load-target discovery
 
-(defconst q--load-command-regex "^\\(?:\\\\\\|system\\s-+\"\\)l\\s-+:?\\([^ \t\n\"]+\\)"
+(defconst q--load-command-regexp "^\\(?:\\\\\\|system\\s-+\"\\)l\\s-+:?\\([^ \t\n\"]+\\)"
   "Regex matching q load commands.")
 
-(defconst q--namespace-command-regex "^\\\\d\\s-+\\([^ \t\n]+\\)"
+(defconst q--namespace-command-regexp "^\\\\d\\s-+\\([^ \t\n]+\\)"
   "Regex matching q namespace switch commands.")
 
 (defun q--resolve-load-path (raw file)
@@ -1786,7 +1786,7 @@ file path.  Returns nil for unsaved buffers with no project."
   "Return loaded FILE targets referenced in current buffer."
   (let (targets)
     (goto-char (point-min))
-    (while (re-search-forward q--load-command-regex nil t)
+    (while (re-search-forward q--load-command-regexp nil t)
       (let ((resolved (q--resolve-load-path
                        (match-string-no-properties 1)
                        file)))
@@ -1879,7 +1879,7 @@ after an in-Emacs save and should not trigger a full rescan."
 
 ;; source scanning
 
-(defconst q--identifier-token-regex (concat q-name-regex "\\_>")
+(defconst q--identifier-token-regexp (concat q-name-regexp "\\_>")
   "Regex matching q identifiers for reference scanning.")
 
 (defun q--canonicalize-name (namespace name)
@@ -1894,7 +1894,7 @@ after an in-Emacs save and should not trigger a full rescan."
     (let ((limit (or pos (point)))
           (namespace nil))
       (goto-char (point-min))
-      (while (re-search-forward q--namespace-command-regex limit t)
+      (while (re-search-forward q--namespace-command-regexp limit t)
         (setq namespace (match-string-no-properties 1)))
       namespace)))
 
@@ -1954,12 +1954,12 @@ Returns nil when SUMMARY does not look like a function definition."
     (let ((def-index (make-hash-table :test #'equal))
           (ref-index (make-hash-table :test #'equal))
           (symbols nil)
-          (def-pattern (concat "^" q-variable-regex))
+          (def-pattern (concat "^" q-variable-regexp))
           (namespace nil))
       (goto-char (point-min))
       (while (not (eobp))
         (beginning-of-line)
-        (if (looking-at q--namespace-command-regex)
+        (if (looking-at q--namespace-command-regexp)
             (setq namespace (match-string-no-properties 1))
           (let* ((line-start (line-beginning-position))
                  (line-end (line-end-position))
@@ -1979,7 +1979,7 @@ Returns nil when SUMMARY does not look like a function definition."
                        (entry (q--make-entry meta doc signature file)))
                   (puthash canonical (cons entry (gethash canonical def-index)) def-index)
                   (push canonical symbols)))
-              (while (re-search-forward q--identifier-token-regex line-end t)
+              (while (re-search-forward q--identifier-token-regexp line-end t)
                 (let* ((name (match-string-no-properties 1))
                        (ref-pos (match-beginning 1))
                        (canonical (q--canonicalize-name namespace name))
@@ -2396,7 +2396,7 @@ A qcon subprocess relaying to a remote q process.")
 (defun q-beginning-of-defun (&optional arg)
   "Move backward to the beginning of a q function definition.
 With ARG, do it that many times."
-  (re-search-backward (concat "^" q-function-regex) nil 'move (or arg 1)))
+  (re-search-backward (concat "^" q-function-regexp) nil 'move (or arg 1)))
 
 (defun q-end-of-defun ()
   "Move forward to the end of a q function definition.
@@ -2414,7 +2414,7 @@ Used by `which-function-mode' and `add-log-current-defun-function'."
     (let ((start (point))
           name)
       (goto-char (line-end-position))
-      (when (re-search-backward (concat "^" q-function-regex) nil t)
+      (when (re-search-backward (concat "^" q-function-regexp) nil t)
         (let* ((candidate (match-string-no-properties 1))
                (end (match-end 0))
                (close-line (if (eq (char-before end) ?{)
