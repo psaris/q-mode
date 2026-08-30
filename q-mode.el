@@ -389,7 +389,7 @@ integer, unlike the other `q-init-*' variables it sits alongside."
   (interactive)
   (q-activate-buffer (current-buffer)))
 
-(defun q-shell-buffer-p (buffer)
+(defun q--shell-buffer-p (buffer)
   "Return non-nil if BUFFER is a live Q shell buffer.
 BUFFER can be a buffer object, buffer name, or cons cell from completion.
 When `q-allow-shell-buffer' is non-nil, any live comint buffer with a
@@ -411,7 +411,7 @@ Prompt with a list of live Q Shell buffers if called interactively."
    (list (read-buffer "activate buffer: "
                       nil
                       t
-                      #'q-shell-buffer-p)))
+                      #'q--shell-buffer-p)))
   (when (called-interactively-p 'any) (display-buffer buffer))
   (setq q-active-buffer (get-buffer buffer)))
 
@@ -598,7 +598,7 @@ command to read the command line arguments from the minibuffer."
          (process-environment (cons "KX_LINE=0" process-environment))
          process)
     (when (called-interactively-p 'any) (pop-to-buffer buffer))
-    (when (or current-prefix-arg (not (q-shell-buffer-p buffer)))
+    (when (or current-prefix-arg (not (q--shell-buffer-p buffer)))
       (with-current-buffer buffer
         (message "q: starting q with command \"%s\"" cmd)
         (q-shell-mode)
@@ -643,7 +643,7 @@ process, whether it was just started here or already running from an
 earlier call."
   (let ((buffer (get-buffer-create buffer-name)))
     (when interactive-call (pop-to-buffer buffer))
-    (when (or current-prefix-arg (not (q-shell-buffer-p buffer)))
+    (when (or current-prefix-arg (not (q--shell-buffer-p buffer)))
       (with-current-buffer buffer
         (message "%s" message)
         (funcall (or mode #'q-shell-mode))
@@ -892,7 +892,7 @@ at a time, in order, as each previous one finishes - see
 (defun q-show-q-buffer ()
   "Switch to the active q process, or start a new one (passing in args)."
   (interactive)
-  (unless (q-shell-buffer-p q-active-buffer)
+  (unless (q--shell-buffer-p q-active-buffer)
     (q))
   (if (called-interactively-p 'any)
       (pop-to-buffer q-active-buffer)
@@ -949,7 +949,7 @@ When SOURCE-SPAN is given, the namespace in effect at its BEG (per
 evaluating STRING."
   (unless (stringp string)
     (user-error "Nothing to send"))
-  (unless (q-shell-buffer-p q-active-buffer)
+  (unless (q--shell-buffer-p q-active-buffer)
     (user-error "No active q buffer; run `M-x q' or activate a q shell with `C-c M-RET'"))
   (let* ((msg (if source-span
                   (q--namespace-wrap-string
@@ -1120,7 +1120,7 @@ one line, symbol, or function."
 (defun q-next-error (&optional n)
   "Jump to the Nth next stack-frame error in the active q shell buffer."
   (interactive "p")
-  (unless (q-shell-buffer-p q-active-buffer)
+  (unless (q--shell-buffer-p q-active-buffer)
     (user-error "No active q buffer; run `M-x q' or activate a q shell with `C-c M-RET'"))
   (setq next-error-last-buffer q-active-buffer)
   (next-error (or n 1)))
@@ -2468,22 +2468,22 @@ Used by `which-function-mode' and `add-log-current-defun-function'."
                        (skip-chars-forward " \t")
                        (if (>= (point) savep) (setq savep nil))
                        (or (if (null q-indent-step)
-                               (q-compute-indent-sexp)
-                             (* q-indent-step (q-compute-indent-tab)))
+                               (q--compute-indent-sexp)
+                             (* q-indent-step (q--compute-indent-tab)))
                            0))
                    (error 0))))
     (if savep
         (save-excursion (indent-line-to indent))
       (indent-line-to indent))))
 
-(defun q-compute-indent-sexp ()
+(defun q--compute-indent-sexp ()
   "Compute the indent for a line using sexp."
   (backward-up-list)
   (let ((savepos (point)))
     (beginning-of-line)
     (+ 1 (- savepos (point)))))
 
-(defun q-compute-indent-tab ()
+(defun q--compute-indent-tab ()
   "Compute the indent for a line using tabs."
   (let ((n 0)
         pos)
