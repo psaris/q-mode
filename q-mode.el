@@ -544,7 +544,7 @@ Input history is shared across every kind of q buffer, in a single
 at the prompt, regardless of how this buffer's process is reached."
   (setq comint-input-ring-file-name (expand-file-name "~/.q_history"))
   (comint-read-input-ring t)
-  (set-process-sentinel process 'q--process-sentinel))
+  (set-process-sentinel process #'q--process-sentinel))
 
 (defun q--format-buffer-name (type &optional host port alias tls)
   "Return a standard `q-mode' buffer name.
@@ -603,7 +603,7 @@ command to read the command line arguments from the minibuffer."
         (message "q: starting q with command \"%s\"" cmd)
         (q-shell-mode)
         (let ((comint-args (list buffer "q" command nil switches)))
-          (setq process (get-buffer-process (apply 'comint-exec comint-args))))
+          (setq process (get-buffer-process (apply #'comint-exec comint-args))))
         (q--setup-shell-buffer process)))
     (q-activate-buffer buffer)
     (get-buffer-process buffer)))
@@ -1093,21 +1093,22 @@ one line, symbol, or function."
 (defun q-eval-line-and-go ()
   "Send the current line to the inferior q[con] process and show active q buffer."
   (interactive)
-  (q--and-go 'q-eval-line))
+  (q--and-go #'q-eval-line))
 
 (defun q-eval-function-and-go ()
   "Send the function to the inferior q[con] process and show active q buffer."
-  (interactive) (q--and-go 'q-eval-function))
+  (interactive)
+  (q--and-go #'q-eval-function))
 
 (defun q-eval-region-and-go ()
   "Send the active region to the inferior q[con] process and show active q buffer."
   (interactive)
-  (q--and-go 'q-eval-region))
+  (q--and-go #'q-eval-region))
 
 (defun q-eval-symbol-and-go ()
   "Send current symbol to the inferior q[con] process and show active q buffer."
   (interactive)
-  (q--and-go 'q-eval-symbol))
+  (q--and-go #'q-eval-symbol))
 
 (defun q-load-file ()
   "Load current buffer's file into the inferior q[con] process after saving."
@@ -1167,9 +1168,9 @@ Runs after every chunk of process output is inserted into the current
 
 (defvar q-inline-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c C-.") 'q-inline-show-full)
-    (define-key map (kbd "C-c C-k") 'q-inline-clear)
-    (define-key map (kbd "C-u C-c C-k") 'q-inline-clear-buffer)
+    (define-key map (kbd "C-c C-.") #'q-inline-show-full)
+    (define-key map (kbd "C-c C-k") #'q-inline-clear)
+    (define-key map (kbd "C-u C-c C-k") #'q-inline-clear-buffer)
     map)
   "Keymap for `q-inline-mode'.")
 
@@ -1332,33 +1333,33 @@ With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
 
 (defvar q-shell-mode-map
   (let ((q-shell-mode-map (make-sparse-keymap)))
-    (define-key q-shell-mode-map (kbd "C-c M-RET") 'q-activate-this-buffer)
+    (define-key q-shell-mode-map (kbd "C-c M-RET") #'q-activate-this-buffer)
     (set-keymap-parent q-shell-mode-map comint-mode-map)
     q-shell-mode-map)
   "Keymap for inferior q mode.")
 
 (defvar q-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map "\C-c\C-l"    'q-eval-line)
-    (define-key map "\C-c\C-j"    'q-eval-line)
-    (define-key map "\C-c\M-j"    'q-eval-line-and-go)
-    (define-key map (kbd "<C-return>") 'q-eval-line-and-step)
-    (define-key map "\C-\M-x"     'q-eval-function)
-    (define-key map "\C-c\C-f"    'q-eval-function)
-    (define-key map "\C-c\M-f"    'q-eval-function-and-go)
-    (define-key map "\C-c\C-r"    'q-eval-region)
-    (define-key map "\C-c\M-r"    'q-eval-region-and-go)
-    (define-key map "\C-c\C-s"    'q-eval-symbol)
-    (define-key map "\C-c\M-s"    'q-eval-symbol-and-go)
-    (define-key map "\C-c\C-b"    'q-eval-buffer)
-    (define-key map "\C-c\M-l"    'q-load-file)
-    (define-key map (kbd "C-c M-RET") 'q-activate-buffer)
-    (define-key map "\C-c\C-q"   'q-show-q-buffer)
-    (define-key map "\C-c\C-\\"  'q-kill-q-buffer)
-    (define-key map "\C-c\C-z"   'q-customize)
-    (define-key map "\C-c\C-c"   'comment-region)
-    (define-key map "\C-c\C-g"   'q-rescan-project)
-    (define-key map "\C-c`"       'q-next-error)
+    (define-key map "\C-c\C-l"    #'q-eval-line)
+    (define-key map "\C-c\C-j"    #'q-eval-line)
+    (define-key map "\C-c\M-j"    #'q-eval-line-and-go)
+    (define-key map (kbd "<C-return>") #'q-eval-line-and-step)
+    (define-key map "\C-\M-x"     #'q-eval-function)
+    (define-key map "\C-c\C-f"    #'q-eval-function)
+    (define-key map "\C-c\M-f"    #'q-eval-function-and-go)
+    (define-key map "\C-c\C-r"    #'q-eval-region)
+    (define-key map "\C-c\M-r"    #'q-eval-region-and-go)
+    (define-key map "\C-c\C-s"    #'q-eval-symbol)
+    (define-key map "\C-c\M-s"    #'q-eval-symbol-and-go)
+    (define-key map "\C-c\C-b"    #'q-eval-buffer)
+    (define-key map "\C-c\M-l"    #'q-load-file)
+    (define-key map (kbd "C-c M-RET") #'q-activate-buffer)
+    (define-key map "\C-c\C-q"   #'q-show-q-buffer)
+    (define-key map "\C-c\C-\\"  #'q-kill-q-buffer)
+    (define-key map "\C-c\C-z"   #'q-customize)
+    (define-key map "\C-c\C-c"   #'comment-region)
+    (define-key map "\C-c\C-g"   #'q-rescan-project)
+    (define-key map "\C-c`"       #'q-next-error)
     map)
   "Keymap for q major mode.")
 
@@ -2359,7 +2360,7 @@ This function never triggers I/O; it only reads from cached data."
 (define-derived-mode q-shell-mode comint-mode "Q-Shell"
   "Major mode for interacting with a q interpreter."
   (q--setup-font-lock)
-  (add-hook 'comint-output-filter-functions 'comint-strip-ctrl-m nil t)
+  (add-hook 'comint-output-filter-functions #'comint-strip-ctrl-m nil t)
   (add-hook 'comint-output-filter-functions #'q--reply-filter nil t)
   (setq-local comint-prompt-regexp "^\\(q)+\\|\\(?:tcps://\\)?[^:]*:[0-9]+>\\)")
   ;; Make q stack-trace file/line entries clickable in REPL output.
@@ -2374,7 +2375,7 @@ This function never triggers I/O; it only reads from cached data."
   "Major mode for a `q-con' buffer.
 A native Emacs connection to a remote q process.")
 
-(define-key q-con-mode-map (kbd "C-c C-c") 'q--con-abort)
+(define-key q-con-mode-map (kbd "C-c C-c") #'q--con-abort)
 
 (define-derived-mode q-qcon-mode q-shell-mode "Q-QCon"
   "Major mode for a `q-qcon' buffer.
@@ -2436,7 +2437,7 @@ Used by `which-function-mode' and `add-log-current-defun-function'."
                                          (regexp-quote q-comment-start)
                                          "+[ \t]*\\)"))
   (setq-local comment-end "")
-  (setq-local indent-line-function 'q-indent-line)
+  (setq-local indent-line-function #'q-indent-line)
   ;; enable imenu
   (setq-local imenu-create-index-function #'q-imenu-create-index)
   ;; which-function-mode
@@ -2448,7 +2449,7 @@ Used by `which-function-mode' and `add-log-current-defun-function'."
   (add-hook 'eldoc-documentation-functions #'q-eldoc-function nil t)
   (when (featurep 'xref)
     (add-hook 'xref-backend-functions #'q--xref-backend nil t))
-  (add-hook 'flymake-diagnostic-functions 'q-flymake nil t)
+  (add-hook 'flymake-diagnostic-functions #'q-flymake nil t)
   ;; Schedule rescans on save/revert rather than inline on every eldoc tick.
   ;; Saves trigger an incremental rescan of the changed file only; out-of-band
   ;; disk changes (e.g. git pull) are detected and promote to a full rescan.
