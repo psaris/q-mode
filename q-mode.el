@@ -284,6 +284,24 @@ buffer contents to a temporary file before invoking q."
   :type 'boolean
   :group 'q)
 
+(defcustom q-prompt-regexps
+  (list
+   (concat "q"                           ; q's prompt character
+           ")+")                         ; one ")" per suspended frame
+   (concat "\\(?:tcps://\\)?"            ; optional tls scheme
+           "[^:]*:[0-9]+>"))             ; host:port style prompt
+  "List of regexp fragments, any of which marks a q-family interpreter prompt.
+Each fragment is one alternative in the regexp used as
+`comint-prompt-regexp'.
+
+To support a different prompt, add a fragment rather than replacing the
+list, e.g.:
+
+  (add-to-list 'q-prompt-regexps \"new regexp\")"
+  :safe (lambda (val) (and (listp val) (seq-every-p #'stringp val)))
+  :type '(repeat regexp)
+  :group 'q)
+
 (defcustom q-allow-shell-buffer nil
   "If non-nil, allow any live comint buffer as the active q buffer.
 This lets you point `q-active-buffer' at a `*shell*' buffer (or
@@ -2362,7 +2380,8 @@ This function never triggers I/O; it only reads from cached data."
   (q--setup-font-lock)
   (add-hook 'comint-output-filter-functions #'comint-strip-ctrl-m nil t)
   (add-hook 'comint-output-filter-functions #'q--reply-filter nil t)
-  (setq-local comint-prompt-regexp "^\\(q)+\\|\\(?:tcps://\\)?[^:]*:[0-9]+>\\)")
+  (setq-local comint-prompt-regexp
+              (concat "^\\(" (mapconcat #'identity q-prompt-regexps "\\|") "\\)"))
   ;; Make q stack-trace file/line entries clickable in REPL output.
   (add-to-list 'compilation-error-regexp-alist-alist
                `(q-stack-frame ,(concat "^" q--stack-frame-regexp) 1 2))
