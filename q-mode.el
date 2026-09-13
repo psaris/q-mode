@@ -287,6 +287,9 @@ buffer contents to a temporary file before invoking q."
 (defcustom q-prompt-regexps
   (list
    (concat "q"                           ; q's prompt character
+           "\\(?:"                       ; optional current namespace
+           "\\.[a-zA-Z]\\(?:\\w\\|[_.]\\)*" ; e.g. ".foo", ".foo.bar"
+           "\\)?"
            ")+")                         ; one ")" per suspended frame
    (concat "\\(?:tcps://\\)?"            ; optional tls scheme
            "[^:]*:[0-9]+>"))             ; host:port style prompt
