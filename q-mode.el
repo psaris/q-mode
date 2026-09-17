@@ -575,15 +575,18 @@ non-nil, is shown in brackets before HOST/PORT - it's the caller's job
 to supply it; this function doesn't search `q-connections-alist' itself.
 TLS, when non-nil, prefixes HOST with \"tcps://\"."
   (let* ((type-str (substring (symbol-name type) 1))
-         (parsed (when host (q--parse-host-scheme host)))
-         (clean-host (cdr parsed))
+         (parsed (when (and host (not (string-empty-p host)))
+                   (q--parse-host-scheme host)))
+         (clean-host (and parsed (not (string-empty-p (cdr parsed))) (cdr parsed)))
          (port-str (when port (number-to-string (q--con-port-number port)))))
     (concat "*q-" type-str
-            (when (and clean-host port-str)
+            (when (or clean-host port-str)
               (concat ":"
                       (when (and alias (not (string-empty-p alias)))
                         (concat " [" alias "]"))
-                      " " (and tls "tcps://") clean-host ":" port-str))
+                      " " (and tls clean-host "tcps://") clean-host
+                      (when port-str
+                        (concat ":" port-str))))
             "*")))
 
 ;;;###autoload
