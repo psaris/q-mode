@@ -300,7 +300,7 @@ Each fragment is one alternative in the regexp used as
 To support a different prompt, add a fragment rather than replacing the
 list, e.g.:
 
-  (add-to-list 'q-prompt-regexps \"new regexp\")"
+  (add-to-list \\='q-prompt-regexps \"new regexp\")"
   :safe (lambda (val) (and (listp val) (seq-every-p #'stringp val)))
   :type '(repeat regexp)
   :group 'q)
@@ -1536,7 +1536,7 @@ With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
    ;; os multi-letter system commands ignore comments
    '("^\\\\\\w\\w.*?$" 0 font-lock-preprocessor-face prepend)
    '("^'.*" . font-lock-warning-face) ; error
-   (list (concat "[; ]\\('" q-symbol-regexp "\\)") 1 font-lock-warning-face nil) ; signal
+   (list (concat "[; ]\\('" q-symbol-regexp "\\)") 1 'font-lock-warning-face nil) ; signal
    (cons q-file-regexp 'font-lock-preprocessor-face) ; files
    (cons q-symbol-regexp 'font-lock-constant-face) ; symbols
    )
@@ -2247,8 +2247,9 @@ Intended for use in `kill-buffer-hook' to avoid unbounded cache growth."
 
 (defun q--capf-annotation (candidate)
   "Return an annotation string for completion CANDIDATE."
-  (when-let (kind (q--capf-kind candidate))
-    (concat " <" (symbol-name kind) ">")))
+  (let ((kind (q--capf-kind candidate)))
+    (when kind
+      (concat " <" (symbol-name kind) ">"))))
 
 (defun q--capf-doc-buffer (candidate)
   "Return a documentation buffer for completion CANDIDATE.
