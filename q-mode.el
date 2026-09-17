@@ -315,9 +315,9 @@ in `q-shell-mode' are accepted."
   :type 'boolean
   :group 'q)
 
-(defcustom q-eval-prefix "(::) "
+(defcustom q-eval-prefix "[] "
   "Prefixed onto every expression `q-eval-symbol/line/region' sends.
-Empty string disables this entirely.  The default, `(::) ', is q's
+Empty string disables this entirely.  The default, `[] ', is q's
 identity function and causes the result (even assignment) to be
 displayed."
   :safe 'stringp
