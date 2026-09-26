@@ -1438,7 +1438,6 @@ With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
 
 (defconst q-keywords-regexp
   (concat "\\_<"
-          "\\(?:[_]\\)?"                ; leading _ is not a symbol
           (regexp-opt q-keyword-list t)
           "\\_>")
   "Keyword regex for q mode defined in .Q.res.")
@@ -1462,7 +1461,6 @@ With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
 
 (defconst q-builtin-words-regexp
   (concat "\\_<"
-          "\\(?:[_]\\)?"                ; leading _ is not a symbol
           "\\("
           "\\(?:[.]q[.]\\)?"
           (regexp-opt q-builtin-word-list)
@@ -1481,7 +1479,6 @@ With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
 
 (defconst q-builtin-dot-z-words-regexp
   (concat "\\_<"
-          "\\(?:[_]\\)?"                ; leading _ is not a symbol
           (regexp-opt q-builtin-dot-z-word-list t)
           "\\_>")
   "Builtin .z functions/constants regex defined for q mode.")
@@ -1499,7 +1496,6 @@ With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
 
 (defconst q-builtin-dot-Q-words-regexp
   (concat "\\_<"
-          "\\(?:[_]\\)?"                ; leading _ is not a symbol
           (regexp-opt q-builtin-dot-Q-word-list t)
           "\\_>")
   "Builtin .Q functions/constants regex defined for q mode.")
@@ -1513,7 +1509,6 @@ With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
 
 (defconst q-builtin-dot-h-words-regexp
   (concat "\\_<"
-          "\\(?:[_]\\)?"                ; leading _ is not a symbol
           (regexp-opt q-builtin-dot-h-word-list t)
           "\\_>")
   "Builtin .h functions/constants regex defined for q mode.")
@@ -1524,7 +1519,6 @@ With a prefix argument WHOLE-BUFFER, delete every eval-result overlay."
 
 (defconst q-builtin-dot-j-words-regexp
   (concat "\\_<"
-          "\\(?:[_]\\)?"                ; leading _ is not a symbol
           (regexp-opt q-builtin-dot-j-word-list t)
           "\\_>")
   "Builtin .j functions/constants regex defined for q mode.")
@@ -1632,7 +1626,10 @@ Set the syntax table, `font-lock-defaults', and the
     ;; comment-ender syntax in the table (handled entirely via text properties)
     ("\\(?:^\\|[ \t]\\)\\(/\\)\\([^\n]*\\)\\(\n\\)"
      (1 (unless (nth 3 (syntax-ppss)) (string-to-syntax "<")))
-     (3 (unless (nth 3 (syntax-ppss)) (string-to-syntax ">")))))
+     (3 (unless (nth 3 (syntax-ppss)) (string-to-syntax ">"))))
+    ;; _ after non-identifier is the drop operator
+    ("[^a-zA-Z_]\\(_\\)"
+     (1 (string-to-syntax "."))))
    start end))
 
 
