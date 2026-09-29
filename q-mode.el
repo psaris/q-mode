@@ -619,7 +619,7 @@ command to read the command line arguments from the minibuffer."
          (command (if qs "ssh" (or shell-file-name (getenv "SHELL") "/bin/sh")))
          (switches (append (if qs (list "-t" host) (list "-c")) (list cmd)))
          ;; disable kdb-x rlwrap functionality
-         (process-environment (cons "KX_LINE=0" process-environment))
+         (process-environment (append '("KX_LINE=0" "KX_TTY=1") process-environment))
          process)
     (when (called-interactively-p 'any) (pop-to-buffer buffer))
     (when (or current-prefix-arg (not (q--shell-buffer-p buffer)))
