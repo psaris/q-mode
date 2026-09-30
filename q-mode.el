@@ -1194,7 +1194,6 @@ Runs after every chunk of process output is inserted into the current
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-.") #'q-inline-show-full)
     (define-key map (kbd "C-c C-k") #'q-inline-clear)
-    (define-key map (kbd "C-u C-c C-k") #'q-inline-clear-buffer)
     map)
   "Keymap for `q-inline-mode'.")
 
