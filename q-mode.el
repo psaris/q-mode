@@ -86,6 +86,8 @@
 ;; anyone on the machine running `ps'; `q-con' resolves it from
 ;; auth-source only for the instant it takes to write it to the
 ;; socket, and it never becomes a command-line argument at all.
+;; `q-qcon' passes it in environment variables too, and
+;; `q-qcon-command-line-credentials' can disable the command line form.
 ;; `q-con' also supports TLS: prefix a host with `tcps://' - in
 ;; `q-connection-host', a `q-connections-alist' entry, or typed ad-hoc at the
 ;; prompt - to connect over TLS instead of plain tcp.
@@ -246,6 +248,15 @@ since `q--connection-resolve-credentials' just calls
 (defcustom q-qcon-program "qcon"
   "Program name for invoking an inferior qcon."
   :type 'file
+  :group 'q)
+
+(defcustom q-qcon-command-line-credentials t
+  "Non-nil means `q-qcon' also passes the user and password on the command line.
+`q-qcon' always passes them to qcon in the KX_QCON_USER and KX_QCON_PASS
+environment variables.  Older qcon versions ignore these and need the
+host:port:user:pass command-line form.  Set to nil to use only the more
+secure environment variables."
+  :type 'boolean
   :group 'q)
 
 (defcustom q-host ""
@@ -694,14 +705,20 @@ an ad-hoc \"host:port[:user]\" string."
   (when tls (message "q: qcon does not support tcps protocol, continuing with tcp"))
   (cl-destructuring-bind (clean-host clean-port login password)
       (q--qcon-resolve-args host port user)
-    (let ((cmd-args (q--qcon-format-args clean-host clean-port login password))
-          (display-args (q--qcon-redact-args clean-host clean-port login password)))
+    (let* ((cli-user (if q-qcon-command-line-credentials login ""))
+           (cmd-args (q--qcon-format-args clean-host clean-port cli-user password))
+           (display-args (q--qcon-redact-args clean-host clean-port cli-user password)))
       (q--start-connection-buffer
        (q--format-buffer-name :qcon clean-host clean-port alias)
        (called-interactively-p 'any)
        (format "q: starting qcon with command \"%s\"" (concat q-qcon-program " " display-args))
        (lambda ()
-         (get-buffer-process (comint-exec (current-buffer) "qcon" q-qcon-program nil (list cmd-args))))
+         (let ((process-environment
+                (append (unless (equal login "")
+                          (list (concat "KX_QCON_USER=" login)
+                                (concat "KX_QCON_PASS=" password)))
+                        process-environment)))
+           (get-buffer-process (comint-exec (current-buffer) "qcon" q-qcon-program nil (list cmd-args)))))
        #'q-qcon-mode))))
 
 (defun q--parse-host-scheme (host)
